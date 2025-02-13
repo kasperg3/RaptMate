@@ -2,6 +2,7 @@
 
 static const char* SERVER_TAG = "RaptMateServer";
 
+
 void RaptMateServer::init() {
     init_wifi();
     // We start the HTTP server immediately. In this example,
@@ -34,39 +35,15 @@ void RaptMateServer::init_wifi() {
                                         &instance_got_ip);
 
     wifi_config_t wifi_config = {};
-    // Check if Wi-Fi credentials are stored
-    if (strlen(WIFI_SSID) == 0 || strlen(WIFI_PASS) == 0) {
-        ESP_LOGI(SERVER_TAG, "No Wi-Fi credentials found, starting AP mode");
-        start_wifi_ap();
-    } else {
-        strncpy((char*)wifi_config.sta.ssid, WIFI_SSID, sizeof(wifi_config.sta.ssid));
-        strncpy((char*)wifi_config.sta.password, WIFI_PASS, sizeof(wifi_config.sta.password));
+    strncpy((char*)wifi_config.sta.ssid, WIFI_SSID, sizeof(wifi_config.sta.ssid));
+    strncpy((char*)wifi_config.sta.password, WIFI_PASS, sizeof(wifi_config.sta.password));
 
-        esp_wifi_set_mode(WIFI_MODE_STA);
-        esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
-        esp_wifi_start();
-
-        ESP_LOGI(SERVER_TAG, "Wi‑Fi initialized. Connecting to SSID: %s", WIFI_SSID);
-        esp_wifi_connect();
-    }
-}
-
-void RaptMateServer::start_wifi_ap() {
-    esp_netif_create_default_wifi_ap();
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    esp_wifi_init(&cfg);
-
-    wifi_config_t wifi_config = {};
-    strncpy((char*)wifi_config.ap.ssid, "RaptMate_AP", sizeof(wifi_config.ap.ssid));
-    wifi_config.ap.ssid_len = strlen("RaptMate_AP");
-    wifi_config.ap.max_connection = 4;
-    wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-
-    esp_wifi_set_mode(WIFI_MODE_AP);
-    esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
     esp_wifi_start();
 
-    ESP_LOGI(SERVER_TAG, "Wi-Fi AP started with SSID: RaptMate_AP");
+    ESP_LOGI(SERVER_TAG, "Wi‑Fi initialized. Connecting to SSID: %s", WIFI_SSID);
+    esp_wifi_connect();
 }
 
 void RaptMateServer::init_mdns() {
@@ -102,22 +79,6 @@ void RaptMateServer::init_http_server() {
         data_uri.handler = RaptMateServer::data_get_handler;
         data_uri.user_ctx = this->ble;
         httpd_register_uri_handler(server, &data_uri);
-
-        // Register the /config URI handler that serves the Wi-Fi config page.
-        httpd_uri_t config_uri = {};
-        config_uri.uri = "/config";
-        config_uri.method = HTTP_GET;
-        config_uri.handler = RaptMateServer::config_get_handler;
-        config_uri.user_ctx = this;
-        httpd_register_uri_handler(server, &config_uri);
-
-        // Register the /config_submit URI handler that handles Wi-Fi config form submission.
-        httpd_uri_t config_submit_uri = {};
-        config_submit_uri.uri = "/config_submit";
-        config_submit_uri.method = HTTP_POST;
-        config_submit_uri.handler = RaptMateServer::config_submit_handler;
-        config_submit_uri.user_ctx = this;
-        httpd_register_uri_handler(server, &config_submit_uri);
 
         ESP_LOGI(SERVER_TAG, "HTTP Server started");
     } else {
@@ -195,74 +156,3 @@ esp_err_t RaptMateServer::data_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-esp_err_t RaptMateServer::config_get_handler(httpd_req_t *req) {
-    const char* html_content =
-        "<!DOCTYPE html>"
-        "<html>"
-        "<head>"
-        "  <meta charset='utf-8'>"
-        "  <title>Configure Wi-Fi</title>"
-        "  <style>"
-        "    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }"
-        "    h1 { background-color: #4CAF50; color: white; padding: 20px; text-align: center; margin: 0; }"
-        "    #config { padding: 20px; text-align: center; font-size: 1.5em; }"
-        "    .config-item { background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); margin: 10px auto; padding: 20px; max-width: 600px; }"
-        "  </style>"
-        "</head>"
-        "<body>"
-        "  <h1>Configure Wi-Fi</h1>"
-        "  <div id='config'>"
-        "    <form action='/config_submit' method='post'>"
-        "      <div class='config-item'>"
-        "        <label for='ssid'>SSID:</label>"
-        "        <input type='text' id='ssid' name='ssid' required>"
-        "      </div>"
-        "      <div class='config-item'>"
-        "        <label for='password'>Password:</label>"
-        "        <input type='password' id='password' name='password' required>"
-        "      </div>"
-        "      <div class='config-item'>"
-        "        <button type='submit'>Save</button>"
-        "      </div>"
-        "    </form>"
-        "  </div>"
-        "</body>"
-        "</html>";
-
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, html_content, strlen(html_content));
-    return ESP_OK;
-}
-
-esp_err_t RaptMateServer::config_submit_handler(httpd_req_t *req) {
-    char buf[100];
-    int ret, remaining = req->content_len;
-
-    while (remaining > 0) {
-        if ((ret = httpd_req_recv(req, buf, MIN(remaining, sizeof(buf)))) <= 0) {
-            if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
-                continue;
-            }
-            return ESP_FAIL;
-        }
-        remaining -= ret;
-    }
-
-    buf[req->content_len] = '\0';
-
-    char ssid[32] = {0};
-    char password[64] = {0};
-
-    sscanf(buf, "ssid=%31[^&]&password=%63s", ssid, password);
-
-    // Save the credentials to NVS or another storage
-    // For simplicity, we assume the credentials are saved successfully
-
-    ESP_LOGI(SERVER_TAG, "Received Wi-Fi credentials: SSID=%s, Password=%s", ssid, password);
-
-    // Respond with a success message
-    const char* response = "Wi-Fi credentials saved. Please restart the device.";
-    httpd_resp_send(req, response, strlen(response));
-
-    return ESP_OK;
-}
