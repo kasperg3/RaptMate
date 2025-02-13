@@ -1,3 +1,0 @@
--- IDF_TARGET is not set, guessed 'esp32c3' from sdkconfig '/home/kang/workspace/RaptPillMate/sdkconfig'
--- Found Git: /usr/bin/git (found version "2.34.1") 
--- The C compiler identification is GNU 14.2.0

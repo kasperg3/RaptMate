@@ -1,1 +1,12 @@
 managed_components/
+build/
+sdkconfig
+sdkconfig.old
+.vscode/
+*.log
+*.bin
+*.elf
+*.map
+*.pyc
+*.pyo
+.DS_Store
