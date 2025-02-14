@@ -3,8 +3,7 @@
 # Communication Module
 
 
-Menuconfig set partition size to large factory app. 
-
+Menuconfig set partition size to custom partition and increase flash size to maximum
 
 
 ### Build and Flash
@@ -16,3 +15,6 @@ idf.py -p PORT build flash monitor
 ```
 
 (To exit the serial monitor, type ``Ctrl-]``.)
+
+ esptool.py --chip esp32c3 write_flash -z 0x210000 spiffs.bin
+ python $IDF_PATH/components/spiffs/spiffsgen.py 2031616 build/ spiffs.bin

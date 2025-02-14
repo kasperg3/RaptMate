@@ -1,0 +1,32 @@
+/* src/App.css */
+.App {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f9;
+    color: #333;
+  }
+  
+  h1 {
+    background-color: #4CAF50;
+    color: white;
+    padding: 20px;
+    text-align: center;
+    margin: 0;
+  }
+  
+  #data {
+    padding: 20px;
+    text-align: center;
+    font-size: 1.5em;
+  }
+  
+  .data-item {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin: 10px auto;
+    padding: 20px;
+    max-width: 600px;
+  }
+  

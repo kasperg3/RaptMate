@@ -4,11 +4,30 @@ static const char* SERVER_TAG = "RaptMateServer";
 
 
 void RaptMateServer::init() {
+
+    
     init_wifi();
     // We start the HTTP server immediately. In this example,
     // mDNS is (re)initialized once an IP is acquired.
     init_http_server();
+
+    // Initialize SPIFFS for react app
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = "/spiffs",
+        .partition_label = "storage",
+        .max_files = 5,
+        .format_if_mount_failed = false,
+    };
+
+    esp_err_t ret = esp_vfs_spiffs_register(&conf);
+    if (ret != ESP_OK) {
+        ESP_LOGE(SERVER_TAG, "Failed to mount or format filesystem");
+    }else{
+        ESP_LOGI(SERVER_TAG, "SPIFFS mounted");
+
+    }
 }
+
 
 void RaptMateServer::init_wifi() {
     ESP_LOGI(SERVER_TAG, "Initializing Wi‑Fi in STA mode");
@@ -62,23 +81,16 @@ void RaptMateServer::init_mdns() {
 void RaptMateServer::init_http_server() {
     ESP_LOGI(SERVER_TAG, "Starting HTTP Server");
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-
+    config.uri_match_fn =httpd_uri_match_wildcard;
     if (httpd_start(&server, &config) == ESP_OK) {
         // Register the root URI handler that serves the HTML page.
+        
         httpd_uri_t index_uri = {};
-        index_uri.uri = "/";
+        index_uri.uri = "/*";
         index_uri.method = HTTP_GET;
         index_uri.handler = RaptMateServer::index_get_handler;
-        index_uri.user_ctx = this;
+        index_uri.user_ctx = this->ble;
         httpd_register_uri_handler(server, &index_uri);
-
-        // Register the /data URI handler that returns JSON data.
-        httpd_uri_t data_uri = {};
-        data_uri.uri = "/data";
-        data_uri.method = HTTP_GET;
-        data_uri.handler = RaptMateServer::data_get_handler;
-        data_uri.user_ctx = this->ble;
-        httpd_register_uri_handler(server, &data_uri);
 
         ESP_LOGI(SERVER_TAG, "HTTP Server started");
     } else {
@@ -102,48 +114,61 @@ void RaptMateServer::wifi_event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-esp_err_t RaptMateServer::index_get_handler(httpd_req_t *req) {
-    const char* html_content =
-        "<!DOCTYPE html>"
-        "<html>"
-        "<head>"
-        "  <meta charset='utf-8'>"
-        "  <title>RaptMate BLE Data</title>"
-        "  <style>"
-        "    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }"
-        "    h1 { background-color: #4CAF50; color: white; padding: 20px; text-align: center; margin: 0; }"
-        "    #data { padding: 20px; text-align: center; font-size: 1.5em; }"
-        "    .data-item { background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); margin: 10px auto; padding: 20px; max-width: 600px; }"
-        "  </style>"
-        "</head>"
-        "<body>"
-        "  <h1>RaptMate BLE Data</h1>"
-        "  <div id='data'>Loading...</div>"
-        "  <script>"
-        "    function fetchData() {"
-        "      fetch('/data')"
-        "        .then(response => response.json())"
-        "        .then(data => {"
-        "          document.getElementById('data').innerHTML = "
-        "            '<div class=\"data-item\">Gravity Velocity: ' + data.gravity_velocity + '</div>' +"
-        "            '<div class=\"data-item\">Temperature (Celsius): ' + data.temperature_celsius + '</div>' +"
-        "            '<div class=\"data-item\">Specific Gravity: ' + data.specific_gravity + '</div>' +"
-        "            '<div class=\"data-item\">Acceleration X: ' + data.accel_x + '</div>' +"
-        "            '<div class=\"data-item\">Acceleration Y: ' + data.accel_y + '</div>' +"
-        "            '<div class=\"data-item\">Acceleration Z: ' + data.accel_z + '</div>' +"
-        "            '<div class=\"data-item\">Battery: ' + data.battery + '</div>';"
-        "        })"
-        "        .catch(err => console.error('Error:', err));"
-        "    }"
-        "    setInterval(fetchData, 1000);"
-        "    fetchData();"
-        "  </script>"
-        "</body>"
-        "</html>";
+char* RaptMateServer::get_content_type(const char* filepath) {
+    const char* ext = strrchr(filepath, '.');
+    if (!ext) {
+        return "text/plain";
+    }
+    if (strcmp(ext, ".html") == 0) {
+        return "text/html";
+    } else if (strcmp(ext, ".css") == 0) {
+        return "text/css";
+    } else if (strcmp(ext, ".js") == 0) {
+        return "application/javascript";
+    } else if (strcmp(ext, ".png") == 0) {
+        return "image/png";
+    } else if (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0) {
+        return "image/jpeg";
+    }
+    return "text/plain";
+}
 
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, html_content, strlen(html_content));
+esp_err_t RaptMateServer::static_file_get_handler(httpd_req_t *req){
+    char filepath[600];
+    if (strcmp(req->uri, "/") == 0) {
+        snprintf(filepath, sizeof(filepath), "/spiffs/index.html");
+    } else {
+        snprintf(filepath, sizeof(filepath), "/spiffs%s", req->uri);
+    }
+    
+    ESP_LOGI(SERVER_TAG, "File path: %s", filepath);
+    // Open the file for reading
+    FILE *file = fopen(filepath, "r");
+    if (!file) {
+        ESP_LOGE(SERVER_TAG, "Failed to open file: %s", filepath);
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File not found");
+        return ESP_FAIL;
+    }
+
+    // Send file content in chunks
+    char buffer[1024];
+    size_t read_bytes;
+    httpd_resp_set_type(req, get_content_type(filepath));
+    while ((read_bytes = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        httpd_resp_send_chunk(req, buffer, read_bytes);
+    }
+    fclose(file);
+    httpd_resp_send_chunk(req, NULL, 0); // End response
     return ESP_OK;
+}
+
+esp_err_t RaptMateServer::index_get_handler(httpd_req_t *req) {
+    // Map URI to SPIFFS file path. For root, serve index.html.
+    if (strcmp(req->uri, "/data") == 0){
+        return data_get_handler(req);
+    } else {
+        return static_file_get_handler(req);
+    }
 }
 
 esp_err_t RaptMateServer::data_get_handler(httpd_req_t *req) {
@@ -151,6 +176,7 @@ esp_err_t RaptMateServer::data_get_handler(httpd_req_t *req) {
     RaptPillData data = ble->getData();
     char json_response[256];
     snprintf(json_response, sizeof(json_response), "{\"gravity_velocity\": %f, \"temperature_celsius\": %f, \"specific_gravity\": %f, \"accel_x\": %f, \"accel_y\": %f, \"accel_z\": %f, \"battery\": %f}", data.gravity_velocity, data.temperature_celsius, data.specific_gravity, data.accel_x, data.accel_y, data.accel_z, data.battery);
+    ESP_LOGI(SERVER_TAG, "Data: %s", json_response);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, json_response, strlen(json_response));
     return ESP_OK;

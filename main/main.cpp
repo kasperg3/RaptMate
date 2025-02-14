@@ -16,6 +16,7 @@
 #include "web/RaptMateServer.hpp"
 #include "drivers/RaptPillBLE.hpp"
 
+// TODO Support multiple boards, such as the CYD boards and regular esp32s.
 
 extern "C" void app_main(void) {
     // Initialize NVS — required for Wi‑Fi.
