@@ -1,4 +1,5 @@
 #include "web/RaptMateServer.hpp"
+#include "cJSON.h"
 
 static const char* SERVER_TAG = "RaptMateServer";
 
@@ -162,10 +163,61 @@ esp_err_t RaptMateServer::static_file_get_handler(httpd_req_t *req){
     return ESP_OK;
 }
 
-esp_err_t RaptMateServer::index_get_handler(httpd_req_t *req) {
+esp_err_t RaptMateServer::settings_post_handler(httpd_req_t *req)
+{
+    char content[256];
+    int total_len = req->content_len;
+    int cur_len = 0;
+    int received = 0;
+
+    if (total_len >= sizeof(content)) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Content too long");
+        return ESP_FAIL;
+    }
+
+    while (cur_len < total_len) {
+        received = httpd_req_recv(req, content + cur_len, total_len - cur_len);
+        if (received <= 0) {
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive post data");
+            return ESP_FAIL;
+        }
+        cur_len += received;
+    }
+    content[total_len] = '\0';
+
+    cJSON *json = cJSON_Parse(content);
+    if (json == NULL) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        return ESP_FAIL;
+    }
+    // TODO create the real settings 
+    // Parse and apply settings from JSON
+    cJSON *setting1 = cJSON_GetObjectItem(json, "setting1");
+    cJSON *setting2 = cJSON_GetObjectItem(json, "setting2");
+
+    if (cJSON_IsString(setting1) && cJSON_IsNumber(setting2)) {
+        // Apply settings
+        ESP_LOGI(SERVER_TAG, "Setting1: %s", setting1->valuestring);
+        ESP_LOGI(SERVER_TAG, "Setting2: %d", setting2->valueint);
+        // Add code to apply settings here
+    } else {
+        cJSON_Delete(json);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid settings format");
+        return ESP_FAIL;
+    }
+
+    cJSON_Delete(json);
+    httpd_resp_sendstr(req, "Settings updated successfully");
+    return ESP_OK;
+}
+
+esp_err_t RaptMateServer::index_get_handler(httpd_req_t *req)
+{
     // Map URI to SPIFFS file path. For root, serve index.html.
     if (strcmp(req->uri, "/data") == 0){
         return data_get_handler(req);
+    } else if(strcmp(req->uri, "/settings") == 0) {
+        return settings_post_handler(req);
     } else {
         return static_file_get_handler(req);
     }

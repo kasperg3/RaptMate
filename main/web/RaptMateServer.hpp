@@ -43,6 +43,8 @@ private:
     // HTTP URI handlers.
     static esp_err_t index_get_handler(httpd_req_t *req);
     static esp_err_t static_file_get_handler(httpd_req_t *req);
+    static esp_err_t settings_post_handler(httpd_req_t *req);
+
     static char* get_content_type(const char* filepath);
 
     static esp_err_t data_get_handler(httpd_req_t *req);

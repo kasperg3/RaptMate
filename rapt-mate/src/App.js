@@ -1,16 +1,19 @@
-// src/App.js
 import React, { useState, useEffect } from 'react';
+import { AppBar, Toolbar, Typography, Tabs, Tab, Box, TextField, Button, Container, Paper } from '@mui/material';
+import Overview from './components/Overview'; // Adjust path as needed
 import './App.css';
 
 function App() {
   const [data, setData] = useState(null);
+  const [ssid, setSsid] = useState('');
+  const [password, setPassword] = useState('');
+  const [tabIndex, setTabIndex] = useState(0);
 
   useEffect(() => {
     const fetchData = () => {
       fetch('/data')
-        .then((response) => response.json())
-        .then((json) => setData(json))
-        .catch((err) => console.error('Error:', err));
+        .then(response => response.json())
+        .then(data => setData(data));
     };
 
     // Fetch data every second
@@ -21,24 +24,53 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  const handleTabChange = (event, newValue) => {
+    setTabIndex(newValue);
+  };
+
   return (
     <div className="App">
-      <h1>RaptMate BLE Data</h1>
-      <div id="data">
-        {data ? (
-          <>
-            <div className="data-item">Gravity Velocity: {data.gravity_velocity}</div>
-            <div className="data-item">Temperature (Celsius): {data.temperature_celsius}</div>
-            <div className="data-item">Specific Gravity: {data.specific_gravity}</div>
-            <div className="data-item">Acceleration X: {data.accel_x}</div>
-            <div className="data-item">Acceleration Y: {data.accel_y}</div>
-            <div className="data-item">Acceleration Z: {data.accel_z}</div>
-            <div className="data-item">Battery: {data.battery}</div>
-          </>
-        ) : (
-          "Loading..."
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6">RaptMate</Typography>
+        </Toolbar>
+      </AppBar>
+      <Tabs value={tabIndex} onChange={handleTabChange} centered>
+        <Tab label="Overview" />
+        <Tab label="Settings" />
+      </Tabs>
+      <Container>
+        {tabIndex === 0 && (
+          <Paper elevation={3} className="paper">
+            <Overview data={data} />
+          </Paper>
         )}
-      </div>
+        {tabIndex === 1 && (
+          <Paper elevation={3} className="paper">
+            <Box id="config">
+              <Typography variant="h5">Configuration</Typography>
+              <TextField
+                label="SSID"
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                value={ssid}
+                onChange={(e) => setSsid(e.target.value)}
+              />
+              <TextField
+                label="Password"
+                type="password"
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Button variant="contained" color="primary">Save</Button>
+            </Box>
+          </Paper>
+        )}
+      </Container>
     </div>
   );
 }
