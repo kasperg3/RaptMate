@@ -14,6 +14,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "common/core.hpp"
+#include "esp_spiffs.h"
+
+
 #define BLE_TAG "BLE"
 
 class RaptPillBLE {
@@ -27,7 +30,7 @@ public:
     void startScan();
 
     RaptPillData getData() {
-        return m_data;
+        return m_most_recent_data;
     }
 
 private:
@@ -36,7 +39,7 @@ private:
     static int bleGapEvent(struct ble_gap_event *event, void *arg);
     int handleBleGapEvent(struct ble_gap_event *event);
     static void bleHostTask(void *);
-    RaptPillData m_data = {};
+    RaptPillData m_most_recent_data = {};
     static RaptPillBLE *instance_;
 };
 

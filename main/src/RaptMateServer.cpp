@@ -1,5 +1,4 @@
 #include "web/RaptMateServer.hpp"
-#include "cJSON.h"
 
 static const char* SERVER_TAG = "RaptMateServer";
 
@@ -14,32 +13,42 @@ void RaptMateServer::init() {
 
     // Initialize SPIFFS for react app
     esp_vfs_spiffs_conf_t conf = {
-        .base_path = "/spiffs",
+        .base_path = "/web",
         .partition_label = "storage",
         .max_files = 5,
         .format_if_mount_failed = false,
     };
 
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
+
     if (ret != ESP_OK) {
         ESP_LOGE(SERVER_TAG, "Failed to mount or format filesystem");
     }else{
         ESP_LOGI(SERVER_TAG, "SPIFFS mounted");
-
     }
 }
 
+RaptMateServer::~RaptMateServer()
+{
+    ESP_LOGI(SERVER_TAG, "Deinitializing Wi-Fi and SNTP");
 
+    // Deinitialize SNTP
+    esp_netif_sntp_deinit();
+
+    // Stop Wi-Fi
+    esp_wifi_stop();
+    esp_wifi_deinit();
+}
 void RaptMateServer::init_wifi() {
-    ESP_LOGI(SERVER_TAG, "Initializing Wi‑Fi in STA mode");
+    ESP_LOGI(SERVER_TAG, "Initializing Wi‑Fi in APSTA mode");
     esp_netif_init();
     esp_event_loop_create_default();
     esp_netif_create_default_wifi_sta();
+    esp_netif_create_default_wifi_ap();
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     esp_wifi_init(&cfg);
-
     esp_wifi_set_ps(WIFI_PS_NONE);
-
+    
     // Register event handlers for Wi‑Fi and IP events.
     esp_event_handler_instance_t instance_any_id;
     esp_event_handler_instance_t instance_got_ip;
@@ -54,17 +63,61 @@ void RaptMateServer::init_wifi() {
                                         this,
                                         &instance_got_ip);
 
-    wifi_config_t wifi_config = {};
-    strncpy((char*)wifi_config.sta.ssid, WIFI_SSID, sizeof(wifi_config.sta.ssid));
-    strncpy((char*)wifi_config.sta.password, WIFI_PASS, sizeof(wifi_config.sta.password));
 
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    wifi_config_t wifi_config_sta = {
+        .sta = {
+            .ssid = WIFI_SSID, // Wi-Fi SSID to connect to
+            .password = WIFI_PASS,  // Wi-Fi password
+            .threshold = {
+                .authmode = WIFI_AUTH_WPA2_PSK // Authentication type
+            },
+        },
+    };
+
+    wifi_config_t wifi_config_ap = {
+        .ap = {
+            .ssid = "RaptMate",        // SSID of the AP
+            .password = "RaptMate", // AP password
+            .ssid_len = strlen("RaptMate"),
+            .authmode = WIFI_AUTH_WPA2_PSK, // Authentication type for AP
+            .max_connection = 4,      // Max number of connections
+        },
+    };
+
+    // Set Wi-Fi mode to Station + AP (dual mode)
+    esp_wifi_set_mode(WIFI_MODE_APSTA);
+    esp_wifi_set_config(WIFI_IF_STA, &wifi_config_sta);
+    esp_wifi_set_config(WIFI_IF_AP, &wifi_config_ap);
+
     esp_wifi_start();
 
+    ESP_LOGI(SERVER_TAG, "Initializing SNTP");
+    esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("dk.pool.ntp.org");
+    config.start = false;                       // start SNTP service explicitly (after connecting)
+    config.server_from_dhcp = true;             // accept NTP offers from DHCP server, if any (need to enable *before* connecting)
+    config.renew_servers_after_new_IP = true;   // let esp-netif update configured SNTP server(s) after receiving DHCP lease
+    config.index_of_first_server = 1;           // updates from server num 1, leaving server 0 (from DHCP) intact
+
+    esp_netif_sntp_init(&config);
+
     ESP_LOGI(SERVER_TAG, "Wi‑Fi initialized. Connecting to SSID: %s", WIFI_SSID);
-    esp_wifi_connect();
+    esp_wifi_connect();    
+
+    // TODO this does not work ATM, need to investigate
+    // Create a task for periodic time synchronization
+    xTaskCreate([](void* param) {
+        RaptMateServer* server = static_cast<RaptMateServer*>(param);
+
+        // Periodically sync every hour (3600 seconds)
+        while (1) {
+            vTaskDelay(pdMS_TO_TICKS(3600000)); // 3600000 ms = 1 hour
+            ESP_LOGI("TIME", "Syncing time...");
+            server->sync_time();  // Sync time
+        }
+    }, "time_sync_task", 4096, this, 5, NULL);
+
 }
+
 
 void RaptMateServer::init_mdns() {
     ESP_LOGI(SERVER_TAG, "Initializing mDNS with hostname: raptmate.local");
@@ -99,19 +152,37 @@ void RaptMateServer::init_http_server() {
     }
 }
 
-void RaptMateServer::wifi_event_handler(void* arg, esp_event_base_t event_base,
-                                          int32_t event_id, void* event_data) {
+void RaptMateServer::sync_time()
+{
+    // wait for time to be set
+    time_t now = 0;
+    struct tm timeinfo = { 0 };
+    int retry = 0;
+    const int retry_count = 15;
+
+    while (esp_netif_sntp_sync_wait(2000 / portTICK_PERIOD_MS) == ESP_ERR_TIMEOUT && ++retry < retry_count) {
+        ESP_LOGI(SERVER_TAG, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
+    }
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    ESP_LOGI(SERVER_TAG, "Current time: %s", asctime(&timeinfo));
+}
+
+void RaptMateServer::wifi_event_handler(void *arg, esp_event_base_t event_base,
+                                        int32_t event_id, void *event_data)
+{
     RaptMateServer* self = static_cast<RaptMateServer*>(arg);
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGW(SERVER_TAG, "Wi‑Fi disconnected, retrying...");
         esp_wifi_connect();
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+    } else if (event_base == IP_EVENT && (event_id == IP_EVENT_STA_GOT_IP || event_id == IP_EVENT_AP_STAIPASSIGNED)) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(SERVER_TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
         // Initialize mDNS now that an IP address is available.
         self->init_mdns();
+        self->sync_time();
     }
 }
 
@@ -137,9 +208,9 @@ char* RaptMateServer::get_content_type(const char* filepath) {
 esp_err_t RaptMateServer::static_file_get_handler(httpd_req_t *req){
     char filepath[600];
     if (strcmp(req->uri, "/") == 0) {
-        snprintf(filepath, sizeof(filepath), "/spiffs/index.html");
+        snprintf(filepath, sizeof(filepath), "/web/index.html");
     } else {
-        snprintf(filepath, sizeof(filepath), "/spiffs%s", req->uri);
+        snprintf(filepath, sizeof(filepath), "/web%s", req->uri);
     }
     
     ESP_LOGI(SERVER_TAG, "File path: %s", filepath);

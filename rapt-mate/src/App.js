@@ -25,7 +25,7 @@ function App() {
             .then(data => setData(data));
         };
         // Fetch data every second
-        const interval = setInterval(fetchData, 1000);
+        const interval = setInterval(fetchData, 10000);
         fetchData(); // initial fetch
         // Cleanup interval on component unmount
         return () => clearInterval(interval);

@@ -18,3 +18,7 @@ idf.py -p PORT build flash monitor
 
  esptool.py --chip esp32c3 write_flash -z 0x210000 spiffs.bin
  python $IDF_PATH/components/spiffs/spiffsgen.py 2031616 build/ spiffs.bin
+
+ menuconfig -> set flash size to 4mb
+ menuconfig -> set custom partition file
+ menufoconfi -> set bluetooth to NimBLE

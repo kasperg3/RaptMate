@@ -19,14 +19,21 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include "esp_spiffs.h"
+#include "esp_sntp.h"
+#include "esp_netif_sntp.h"
+#include "lwip/ip_addr.h"
+#include "time.h"
+#include "cJSON.h"
 
-#define WIFI_SSID "Kasper - iPhone"
-#define WIFI_PASS "kasper123"
+#define WIFI_SSID "HTV367"
+#define WIFI_PASS "AnnaKasper367"
 
 class RaptMateServer {
 public:
     RaptMateServer(RaptPillBLE* ble) : server(NULL), ble(ble) {}
     void init();
+    ~RaptMateServer();
+
     RaptPillData get_data() { return rapt_pill_data; }
 private:
 
@@ -36,7 +43,8 @@ private:
     void init_wifi();
     void init_mdns();
     void init_http_server();
-
+    
+    void sync_time();
     // Static event handler for Wi‑Fi/IP events.
     static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                    int32_t event_id, void* event_data);
@@ -44,7 +52,7 @@ private:
     static esp_err_t index_get_handler(httpd_req_t *req);
     static esp_err_t static_file_get_handler(httpd_req_t *req);
     static esp_err_t settings_post_handler(httpd_req_t *req);
-
+    
     static char* get_content_type(const char* filepath);
 
     static esp_err_t data_get_handler(httpd_req_t *req);

@@ -12,11 +12,12 @@ void RaptPillBLE::dataReceiverTask(void *param) {
     RaptPillBLE *self = static_cast<RaptPillBLE*>(param);
     while (true) {
         if (xQueueReceive(self->dataQueue, &receivedData, portMAX_DELAY)) {
-            self->m_data = receivedData;
+            self->m_most_recent_data = receivedData;
             ESP_LOGI(BLE_TAG, "Updating data");
         }
     }
 }
+
 RaptPillBLE::RaptPillBLE() {
     instance_ = this;
 
@@ -37,14 +38,9 @@ RaptPillBLE::~RaptPillBLE() {
 }
 
 void RaptPillBLE::init() {
-    // Set the instance pointer for use in the static task function.
-
     // Initialize NimBLE host stack.
     nimble_port_init();
     ESP_ERROR_CHECK(esp_nimble_hci_init());
-    
-    // Start the BLE host task.
-    // nimble_port_freertos_init(bleHostTask);
 
     // Create the FreeRTOS task
     xTaskCreate(bleHostTask, "nimble_host_task", 4096, this, 5, NULL);
@@ -153,14 +149,6 @@ int RaptPillBLE::parseManufacturerData(const uint8_t *data, size_t length, ble_a
         }
 
         // Log the parsed data.
-        ESP_LOGI(BLE_TAG, "Parsed Data - Gravity Velocity: %.2f, Temperature: %.2f °C, Specific Gravity: %.4f, "
-                  "Accelerometer (X, Y, Z): %.2f, %.2f, %.2f, Battery: %.2f%%",
-             parsed_data.gravity_velocity, parsed_data.temperature_celsius, parsed_data.specific_gravity,
-             parsed_data.accel_x, parsed_data.accel_y, parsed_data.accel_z, parsed_data.battery);
-        ESP_LOGI(BLE_TAG, "Found device with MAC: %02X:%02X:%02X:%02X:%02X:%02X",
-                 addr.val[5], addr.val[4], addr.val[3],
-                 addr.val[2], addr.val[1], addr.val[0]);
-
         ESP_LOGI(BLE_TAG, "Gravity Velocity Valid: %s, Gravity Velocity: %.2f points/day, Temperature: %.2f °C, Specific Gravity: %.4f, "
                       "Accelerometer (X, Y, Z): %.2f, %.2f, %.2f, Battery: %.2f%%",
                  cc == 0x01 ? "Yes" : "No", gv, temp_celsius, sg,
@@ -192,7 +180,7 @@ int RaptPillBLE::handleBleGapEvent(struct ble_gap_event *event) {
                 ESP_LOGE(BLE_TAG, "Failed to parse advertisement data");
                 return 0;
             }
-            if (fields.mfg_data != nullptr && fields.mfg_data_len > 0) {
+            if (fields.mfg_data != nullptr && fields.mfg_data_len == 25) {
                 parseManufacturerData(fields.mfg_data, fields.mfg_data_len, event->disc.addr);
             }
             break;
