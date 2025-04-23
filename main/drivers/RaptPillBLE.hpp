@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "esp_nimble_hci.h"
@@ -35,6 +36,9 @@ public:
 
 private:
     void ble_app_scan();
+    RaptPillData readLastLine(const std::string& filename);
+    static std::string getCsvHeader();
+    void writeDataToFile(const RaptPillData &data);
     int parseManufacturerData(const uint8_t *data, size_t length, ble_addr_t addr);
     static int bleGapEvent(struct ble_gap_event *event, void *arg);
     int handleBleGapEvent(struct ble_gap_event *event);

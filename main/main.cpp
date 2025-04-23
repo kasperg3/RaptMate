@@ -12,30 +12,35 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-// TODO move into seperate files
+#include "esp_sntp.h"
+#include "esp_netif_sntp.h"
 #include "web/RaptMateServer.hpp"
 #include "drivers/RaptPillBLE.hpp"
+#include "drivers/WifiManager.hpp"
 
-// TODO Support multiple boards, such as the CYD boards and regular esp32s.
-
-extern "C" void app_main(void) {
+extern "C" void app_main(void)
+{
     // Initialize NVS — required for Wi‑Fi.
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
         nvs_flash_erase();
         nvs_flash_init();
     }
-    
+
     RaptPillBLE scanner;
     scanner.init();
-    scanner.startScan();
+
+    WiFiManager wifiManager;
+    wifiManager.init();
 
     // Create and initialize the server.
     RaptMateServer raptMateServer(&scanner);
     raptMateServer.init();
 
     // The main task can now wait forever.
-    while (true) {
+    while (true)
+    {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

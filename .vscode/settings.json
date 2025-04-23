@@ -11,6 +11,8 @@
         "*.tcc": "cpp",
         "unordered_map": "cpp",
         "fstream": "cpp",
-        "sstream": "cpp"
+        "sstream": "cpp",
+        "ctime": "cpp",
+        "source_location": "cpp"
     }
 }

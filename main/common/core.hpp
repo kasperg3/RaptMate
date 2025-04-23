@@ -1,6 +1,7 @@
 #pragma once
 
 struct RaptPillData {
+    int64_t timestamp;
     float gravity_velocity;
     float temperature_celsius;
     float specific_gravity;

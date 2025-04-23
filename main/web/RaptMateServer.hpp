@@ -25,8 +25,8 @@
 #include "time.h"
 #include "cJSON.h"
 
-#define WIFI_SSID "HTV367"
-#define WIFI_PASS "AnnaKasper367"
+#define WIFI_SSID "ProjektNet"
+#define WIFI_PASS "RobotRocks"
 
 class RaptMateServer {
 public:
@@ -40,19 +40,13 @@ private:
     httpd_handle_t server;
     RaptPillBLE* ble;
 
-    void init_wifi();
-    void init_mdns();
     void init_http_server();
-    
-    void sync_time();
-    // Static event handler for Wi‑Fi/IP events.
-    static void wifi_event_handler(void* arg, esp_event_base_t event_base,
-                                   int32_t event_id, void* event_data);
+
     // HTTP URI handlers.
     static esp_err_t index_get_handler(httpd_req_t *req);
     static esp_err_t static_file_get_handler(httpd_req_t *req);
     static esp_err_t settings_post_handler(httpd_req_t *req);
-    
+    static std::string formatRaptPillData(const RaptPillData &data);
     static char* get_content_type(const char* filepath);
 
     static esp_err_t data_get_handler(httpd_req_t *req);
