@@ -1,3 +1,5 @@
+![RaptMate Dashboard](.assets/dashboard.png)
+
 # RAPT-Mate
 
 RAPT-Mate is a project designed to monitor and display sensor data from a BLE-enabled device (RaptPill) using a React-based web interface and an ESP32-based backend. The project integrates hardware and software components to provide real-time data visualization and configuration capabilities.

@@ -1,5 +1,5 @@
 #include "web/RaptMateServer.hpp"
-
+#include <exception>
 static const char *SERVER_TAG = "RaptMateServer";
 
 void RaptMateServer::init()
@@ -185,10 +185,16 @@ esp_err_t RaptMateServer::settings_post_handler(httpd_req_t *req)
 
 esp_err_t RaptMateServer::index_get_handler(httpd_req_t *req)
 {
-    // Map URI to SPIFFS file path. For root, serve index.html.
     if (strcmp(req->uri, "/data") == 0)
     {
         return data_get_handler(req);
+    }
+    else if (strcmp(req->uri, "/reset") == 0)
+    {
+        RaptPillBLE *ble = static_cast<RaptPillBLE *>(req->user_ctx);
+        ble->resetData();
+        httpd_resp_sendstr(req, "Data reset successfully");
+        return ESP_OK;
     }
     else if (strcmp(req->uri, "/settings") == 0)
     {
@@ -203,28 +209,43 @@ esp_err_t RaptMateServer::index_get_handler(httpd_req_t *req)
 std::string RaptMateServer::formatRaptPillData(const RaptPillData &data)
 {
     char json_response[512]; // Buffer for JSON response
-    char timestamp_str[64];
-    // time_t raw_time = static_cast<time_t>(data.timestamp);
-    // struct tm time_info;
-    // localtime_r(&raw_time, &time_info);
-    // strftime(timestamp_str, sizeof(timestamp_str), "%Y-%m-%d %H:%M:%S", &time_info);
-
     snprintf(json_response, sizeof(json_response),
              "{\"timestamp\": \"%lld\", \"gravity_velocity\": %f, \"temperature_celsius\": %f, \"specific_gravity\": %f, \"accel_x\": %f, \"accel_y\": %f, \"accel_z\": %f, \"battery\": %f}",
              data.timestamp, data.gravity_velocity, data.temperature_celsius, data.specific_gravity,
              data.accel_x, data.accel_y, data.accel_z, data.battery);
-
     return std::string(json_response);
 }
+
 esp_err_t RaptMateServer::data_get_handler(httpd_req_t *req)
 {
     RaptPillBLE *ble = static_cast<RaptPillBLE *>(req->user_ctx);
-    RaptPillData data = ble->getData();
-    
-    auto json_response = RaptMateServer::formatRaptPillData(data);
-    // Send JSON response
-    ESP_LOGI(SERVER_TAG, "Response: %s", json_response.c_str());
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, json_response.c_str(), json_response.length());
+    std::vector<RaptPillData> data = ble->getAllData();
+
+    // Prepare CSV header
+    std::string csv_response = "timestamp,gravity_velocity,temperature_celsius,specific_gravity,accel_x,accel_y,accel_z,battery\n";
+
+    // Append data rows
+    for (const auto &entry : data)
+    {
+        csv_response += std::to_string(entry.timestamp) + "," +
+                        std::to_string(entry.gravity_velocity) + "," +
+                        std::to_string(entry.temperature_celsius) + "," +
+                        std::to_string(entry.specific_gravity) + "," +
+                        std::to_string(entry.accel_x) + "," +
+                        std::to_string(entry.accel_y) + "," +
+                        std::to_string(entry.accel_z) + "," +
+                        std::to_string(entry.battery) + "\n";
+    }
+
+    httpd_resp_set_type(req, "text/csv");
+
+    esp_err_t send_result = httpd_resp_send(req, csv_response.c_str(), csv_response.length());
+    if (send_result != ESP_OK)
+    {
+        ESP_LOGE(SERVER_TAG, "Error sending response: %d", send_result);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send response");
+        return ESP_FAIL;
+    }
+
     return ESP_OK;
 }

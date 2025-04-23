@@ -1,6 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { AppBar, Toolbar, Typography, Tabs, Tab, Box, TextField, Button, Container, Paper } from '@mui/material';
-import Overview from './components/Overview'; // Adjust path as needed
+import {
+    Typography,
+    Box,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableRow,
+    AppBar,
+    Toolbar,
+    Tabs,
+    Tab,
+    TextField,
+    Button,
+    Container,
+    Paper
+} from '@mui/material';
+
+import { LineChart } from '@mui/x-charts/LineChart';
+
 import './App.css';
 
 function App() {
@@ -8,19 +26,54 @@ function App() {
     const [ssid, setSsid] = useState('');
     const [password, setPassword] = useState('');
     const [tabIndex, setTabIndex] = useState(0);
-
+    const [chartData, setChartData] = useState({
+        labels: [],
+        gravity: [],
+        temperature: [],
+        battery: []
+    });
     useEffect(() => {
         const fetchData = () => {
-            fetch('/data')
-                .then(response => response.json())
-                .then(data => setData(data));
+            fetch('/data', { headers: { 'Accept': 'text/csv' } })
+            .then(response => response.text())
+            .then(csvText => {
+                const rows = csvText.split('\n').filter(row => row.trim() !== '');
+                const newDataList = rows.slice(1).map(row => {
+                const [
+                    timestamp,
+                    gravity_velocity,
+                    temperature_celsius,
+                    specific_gravity,
+                    accel_x,
+                    accel_y,
+                    accel_z,
+                    battery
+                ] = row.split(',');
+                return {
+                    timestamp: parseInt(timestamp, 10),
+                    gravity_velocity: parseFloat(gravity_velocity),
+                    temperature_celsius: parseFloat(temperature_celsius),
+                    specific_gravity: parseFloat(specific_gravity),
+                    accel_x: parseFloat(accel_x),
+                    accel_y: parseFloat(accel_y),
+                    accel_z: parseFloat(accel_z),
+                    battery: parseFloat(battery),
+                };
+                });
+                setData(newDataList[newDataList.length - 1]); // Set the latest data point for display
+                setChartData({
+                labels: newDataList.map(newData => new Date(newData.timestamp * 1000)),
+                gravity: newDataList.map(newData => newData.specific_gravity / 1000),
+                temperature: newDataList.map(newData => newData.temperature_celsius),
+                battery: newDataList.map(newData => newData.battery),
+                });
+            });
         };
-        // Fetch data every 10 seconds
         const interval = setInterval(fetchData, 10000);
-        fetchData(); // Initial fetch
-        // Cleanup interval on component unmount
+        fetchData();
         return () => clearInterval(interval);
     }, []);
+    
 
     const handleTabChange = (event, newValue) => {
         setTabIndex(newValue);
@@ -28,49 +81,188 @@ function App() {
 
     return (
         <div className="App">
-            <React.Fragment>
-                <AppBar position="static">
-                    <Toolbar>
-                        <Typography variant="h6">RaptMate</Typography>
-                    </Toolbar>
-                </AppBar>
-                <Tabs value={tabIndex} onChange={handleTabChange} centered>
-                    <Tab label="Overview" />
-                    <Tab label="Settings" />
-                </Tabs>
-                <Container>
-                    {tabIndex === 0 && (
-                        <Paper elevation={3} className="paper">
-                            <Overview data={data} />
-                        </Paper>
-                    )}
-                    {tabIndex === 1 && (
-                        <Paper elevation={3} className="paper">
-                            <Box id="config">
-                                <Typography variant="h5">Configuration</Typography>
-                                <TextField
-                                    label="SSID"
-                                    variant="outlined"
-                                    fullWidth
-                                    margin="normal"
-                                    value={ssid}
-                                    onChange={(e) => setSsid(e.target.value)}
-                                />
-                                <TextField
-                                    label="Password"
-                                    type="password"
-                                    variant="outlined"
-                                    fullWidth
-                                    margin="normal"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                                <Button variant="contained" color="primary">Save</Button>
+            <AppBar position="static" sx={{ mb: 2 }}>
+                <Toolbar>
+                    <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+                        RaptMate
+                    </Typography>
+                </Toolbar>
+            </AppBar>
+            <Tabs
+                value={tabIndex}
+                onChange={handleTabChange}
+                centered
+                textColor="primary"
+                indicatorColor="primary"
+                sx={{ mb: 3 }}
+            >
+                <Tab label="Overview" />
+                <Tab label="Settings" />
+            </Tabs>
+            <Container maxWidth="lg">
+                {tabIndex === 0 && (
+                    <Paper elevation={4} sx={{ p: 3, mb: 4 }}>
+                        <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3} alignItems="stretch">
+                            <Box flex={2} display="flex" flexDirection="column">
+                                <Typography variant="h6" gutterBottom>
+                                    Sensor Data Chart
+                                </Typography>
+                                <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
+                                    <LineChart
+                                        xAxis={[{ data: chartData.labels, scaleType: 'time' }]}
+                                        yAxis={[
+                                            {
+                                                id: 'leftAxis',
+                                                label: 'Specific Gravity',
+                                                min: 0.9,
+                                                position: 'left'
+                                            },
+                                            {
+                                                id: 'rightAxis',
+                                                label: 'Temp / Battery',
+                                                min: 0,
+                                                max: 100,
+                                                position: 'right'
+                                            },
+                                        ]}
+                                        series={[
+                                            {
+                                                data: chartData.gravity,
+                                                label: 'Specific Gravity',
+                                                yAxisId: 'leftAxis',
+                                                valueFormatter: (value) => `${value} SG`,
+                                            },
+                                            {
+                                                data: chartData.temperature,
+                                                label: 'Temperature (°C)',
+                                                yAxisId: 'rightAxis',
+                                                valueFormatter: (value) => `${value} °C`,
+                                            },
+                                            {
+                                                data: chartData.battery,
+                                                label: 'Battery (%)',
+                                                yAxisId: 'rightAxis',
+                                                valueFormatter: (value) => `${value} %`,
+                                            },
+                                        ]}
+
+                                        height={400}
+                                        slotProps={{
+                                            tooltip: {
+                                                axis: {
+                                                    x: 'x',
+                                                    yLeft: 'leftAxis',
+                                                    yRight: 'rightAxis',
+                                                },
+                                            },
+                                        }}
+                                        rightAxis="rightAxis" // Explicitly enable right axis
+                                    />
+                                </Paper>
                             </Box>
-                        </Paper>
-                    )}
-                </Container>
-            </React.Fragment>
+                            <Box flex={1} display="flex" flexDirection="column">
+                                <Typography variant="h6" gutterBottom>
+                                    Sensor Data Table
+                                </Typography>
+                                <TableContainer component={Paper} elevation={2} sx={{ flexGrow: 1 }}>
+                                    <Table>
+                                        <TableBody>
+                                            <TableRow>
+                                                <TableCell>Gravity Velocity</TableCell>
+                                                <TableCell align="right">{data?.gravity_velocity || 0}</TableCell>
+                                            </TableRow>
+                                            <TableRow>
+                                                <TableCell>Temperature (°C)</TableCell>
+                                                <TableCell align="right">{data?.temperature_celsius || 0}</TableCell>
+                                            </TableRow>
+                                            <TableRow>
+                                                <TableCell>Specific Gravity</TableCell>
+                                                <TableCell align="right">{data?.specific_gravity/1000 || 0}</TableCell>
+                                            </TableRow>
+                                            <TableRow>
+                                                <TableCell>Acceleration X</TableCell>
+                                                <TableCell align="right">{data?.accel_x || 0}</TableCell>
+                                            </TableRow>
+                                            <TableRow>
+                                                <TableCell>Acceleration Y</TableCell>
+                                                <TableCell align="right">{data?.accel_y || 0}</TableCell>
+                                            </TableRow>
+                                            <TableRow>
+                                                <TableCell>Acceleration Z</TableCell>
+                                                <TableCell align="right">{data?.accel_z || 0}</TableCell>
+                                            </TableRow>
+                                            <TableRow>
+                                                <TableCell>Battery</TableCell>
+                                                <TableCell align="right">{data?.battery || 0}</TableCell>
+                                            </TableRow>
+                                            <TableRow>
+                                                <TableCell>Timestamp</TableCell>
+                                                <TableCell align="right">
+                                                    {data?.timestamp ? new Date(data.timestamp * 1000).toLocaleString() : 'N/A'}
+                                                </TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
+                        </Box>
+                    </Paper>
+                )}
+                {tabIndex === 1 && (
+                    <Paper elevation={4} sx={{ p: 3 }}>
+                        <Typography variant="h6" gutterBottom>
+                            Settings
+                        </Typography>
+                        <Typography variant="subtitle1" gutterBottom>
+                            Wi-Fi Configuration
+                        </Typography>
+                        <Box component="form" noValidate autoComplete="off">
+                            <TextField
+                                label="SSID"
+                                variant="outlined"
+                                fullWidth
+                                margin="normal"
+                                value={ssid}
+                                onChange={(e) => setSsid(e.target.value)}
+                            />
+                            <TextField
+                                label="Password"
+                                type="password"
+                                variant="outlined"
+                                fullWidth
+                                margin="normal"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                            <Box display="flex" justifyContent="flex-end" mt={2}>
+                                <Button variant="contained" color="primary">
+                                    Save
+                                </Button>
+                            </Box>
+                            <Box display="flex" justifyContent="flex-start" mt={2}>
+                                <Button
+                                    variant="outlined"
+                                    color="secondary"
+                                    title="Click to reset all data to default settings"
+                                    onClick={() => {
+                                        fetch('/reset')
+                                            .then(response => {
+                                                if (response.ok) {
+                                                    alert('Data reset successfully');
+                                                } else {
+                                                    alert('Failed to reset data');
+                                                }
+                                            })
+                                            .catch(() => alert('Error occurred while resetting data'));
+                                    }}
+                                >
+                                    Reset Data
+                                </Button>
+                            </Box>
+                        </Box>
+                    </Paper>
+                )}
+            </Container>
         </div>
     );
 }

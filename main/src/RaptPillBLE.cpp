@@ -1,21 +1,8 @@
 #include "drivers/RaptPillBLE.hpp"
 
 RaptPillBLE *RaptPillBLE::instance_ = nullptr;
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#include "freertos/task.h"
-#include <vector>
-#include <time.h>
-#include <sys/time.h>
-#include <string>
 
 QueueHandle_t dataQueue;
-
-// Define the static function for the CSV header
-std::string RaptPillBLE::getCsvHeader()
-{
-    return "timestamp,gravity_velocity,temperature_celsius,specific_gravity,accel_x,accel_y,accel_z,battery\n";
-}
 
 void RaptPillBLE::dataReceiverTask(void *param)
 {
@@ -25,10 +12,10 @@ void RaptPillBLE::dataReceiverTask(void *param)
     {
         if (xQueueReceive(self->dataQueue, &receivedData, portMAX_DELAY))
         {
-            self->m_most_recent_data = receivedData;
+            self->m_most_recent_data.push_back(receivedData);
             if (receivedData.timestamp != 0)
             {
-                ESP_LOGI(BLE_TAG, "Updating data");
+                // ESP_LOGI(BLE_TAG, "Updating data");
 
                 self->writeDataToFile(receivedData);
 
@@ -105,8 +92,6 @@ RaptPillBLE::RaptPillBLE()
             file = fopen(file_path, "w");
             if (file)
             {
-                // Write the header row using the static function
-                fprintf(file, "%s", RaptPillBLE::getCsvHeader().c_str());
                 fclose(file);
                 ESP_LOGI(BLE_TAG, "data.csv created successfully");
             }
@@ -122,18 +107,38 @@ RaptPillBLE::RaptPillBLE()
         }
     }
     // Open the file in read mode
-    this->m_most_recent_data = readLastLine("/data/data.csv");
+    this->m_most_recent_data = readAllData();
+    ESP_LOGI(BLE_TAG, "Number of records loaded from CSV: %zu", this->m_most_recent_data.size());
     // Create the data receiver task
     xTaskCreate(RaptPillBLE::dataReceiverTask, "DataReceiverTask", 4096, this, 5, nullptr);
 }
 
-RaptPillData RaptPillBLE::readLastLine(const std::string &filename)
+void RaptPillBLE::resetData()
+{
+    // Reset the data to default values
+    m_most_recent_data = {};
+    ESP_LOGI(BLE_TAG, "Data reset to default values");
+    // Delete the content of the CSV file
+    FILE *file = fopen("/data/data.csv", "w");
+    if (file)
+    {
+        fclose(file);
+        ESP_LOGI(BLE_TAG, "CSV content deleted");
+    }
+    else
+    {
+        ESP_LOGE(BLE_TAG, "Failed to open data.csv for resetting");
+    }
+}
+
+RaptPillData RaptPillBLE::readLatestData()
 {
     RaptPillData lastData = {};
-    FILE *file = fopen(filename.c_str(), "r");
+    auto filename = "/data/data.csv";
+    FILE *file = fopen(filename, "r");
     if (!file)
     {
-        ESP_LOGE(BLE_TAG, "Failed to open file: %s", filename.c_str());
+        ESP_LOGE(BLE_TAG, "Failed to open file: %s", filename);
         return lastData;
     }
 
@@ -175,6 +180,44 @@ RaptPillData RaptPillBLE::readLastLine(const std::string &filename)
     return lastData;
 }
 
+std::vector<RaptPillData> RaptPillBLE::readAllData()
+{
+    std::vector<RaptPillData> allData;
+    const char *file_path = "/data/data.csv";
+    FILE *file = fopen(file_path, "r");
+    if (!file)
+    {
+        ESP_LOGE(BLE_TAG, "Failed to open file: %s", file_path);
+        return allData;
+    }
+
+    char line[256];
+    
+    // Read each line and parse the data
+    while (fgets(line, sizeof(line), file))
+    {
+        RaptPillData data = {};
+        if (sscanf(line, "%lld,%f,%f,%f,%f,%f,%f,%f",
+                   &data.timestamp,
+                   &data.gravity_velocity,
+                   &data.temperature_celsius,
+                   &data.specific_gravity,
+                   &data.accel_x,
+                   &data.accel_y,
+                   &data.accel_z,
+                   &data.battery) == 8)
+        {
+            allData.push_back(data);
+        }
+        else
+        {
+            ESP_LOGW(BLE_TAG, "Failed to parse line: %s", line);
+        }
+    }
+
+    fclose(file);
+    return allData;
+}
 RaptPillBLE::~RaptPillBLE()
 {
     // Destructor implementation
@@ -231,6 +274,13 @@ int RaptPillBLE::parseManufacturerData(const uint8_t *data, size_t length, ble_a
     uint8_t version = data[4];
     if (version == 0x01)
     {
+        if (last_timestamp == parsed_data.timestamp){
+            // ESP_LOGI(BLE_TAG, "Duplicate timestamp detected, ignoring data");
+            return 0;
+        }else{
+            last_timestamp = parsed_data.timestamp;
+        }
+    
         // Parse MAC address.
         char mac_address[18];
         snprintf(mac_address, sizeof(mac_address), "%02X:%02X:%02X:%02X:%02X:%02X",
@@ -274,6 +324,13 @@ int RaptPillBLE::parseManufacturerData(const uint8_t *data, size_t length, ble_a
     }
     else if (version == 0x02)
     {
+        if (last_timestamp == epoch_time){
+            ESP_LOGI(BLE_TAG, "Duplicate timestamp detected, ignoring data");
+            return 0;
+        }else{
+            last_timestamp = epoch_time;
+        }
+    
         // Parse gravity velocity validity.
         uint8_t cc = data[6];
         float gv = 0.0f;
@@ -330,6 +387,7 @@ int RaptPillBLE::parseManufacturerData(const uint8_t *data, size_t length, ble_a
     {
         return -1; // Unknown version.
     }
+
 
     // Send the parsed data to the queue.
     if (xQueueSend(dataQueue, &parsed_data, portMAX_DELAY) != pdPASS)
