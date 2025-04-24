@@ -51,7 +51,7 @@ jobs:
             . $IDF_PATH/export.sh
             idf.py set-target ${{ matrix.idf_target }}
             export SDKCONFIG=$(pwd)/sdkconfig
-            idf.py build
+            idf.py reconfigure build
         shell: bash
 
       - name: Store binary artifacts
