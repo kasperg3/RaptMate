@@ -1,9 +1,0 @@
-menu "Communication Firmware Configuration"
-
-    config CONFIG_ESP_CONSOLE_SECONDARY_NONE
-        string "Console secondary output None"
-        default y
-        help
-            Disable or enable the secondary output of the console as jtag.
-
-endmenu

@@ -1,7 +1,2 @@
-## IDF Component Manager Manifest File
 dependencies:
-  ## Required IDF version
-    idf:
-      version: '>=5.4.0'
-    espressif/mdns: '*'
-    
+  espressif/mdns: '*'
