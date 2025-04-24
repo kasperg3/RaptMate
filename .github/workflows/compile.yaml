@@ -23,7 +23,7 @@ jobs:
     name: Build for ${{ matrix.idf_target }}
     runs-on: ubuntu-latest
     container:
-        image: ghcr.io/espressif/idf-release:latest
+        image: espressif/idf:release-v5.1
     strategy:
         matrix:
             idf_target: [esp32, esp32s2, esp32c3] # Add more targets as needed
