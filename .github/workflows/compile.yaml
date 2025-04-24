@@ -38,17 +38,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
             python-version: '3.9'
-
-      - name: Install ESP-IDF
-        run: |
-            . $IDF_PATH/export.sh
-            idf.py --version
-
       - name: Build project
         run: |
             . $IDF_PATH/export.sh
             apt-get update
             apt-get install -y npm
+            cd rapt-mate
+            npm install
+            cd ..
             idf.py set-target ${{ matrix.idf_target }}
             idf.py build
         shell: bash
