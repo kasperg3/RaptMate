@@ -11,7 +11,6 @@ on:
     types: [ created ]
 
 env:
-  IDF_TARGET: esp32
   IDF_VERSION: v5.1.2
 
 permissions:
@@ -21,69 +20,72 @@ permissions:
 
 jobs:
   build:
-    name: Build for ${{ env.IDF_TARGET }}
+    name: Build for ${{ matrix.idf_target }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/espressif/idf-release:latest
+        image: ghcr.io/espressif/idf-release:latest
+    strategy:
+        matrix:
+            idf_target: [esp32, esp32s2, esp32c3] # Add more targets as needed
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+            submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+            python-version: '3.9'
 
       - name: Install ESP-IDF
         run: |
-          . $IDF_PATH/export.sh
-          idf.py --version
+            . $IDF_PATH/export.sh
+            idf.py --version
 
       - name: Build project
         run: |
-          . $IDF_PATH/export.sh
-          idf.py set-target $IDF_TARGET
-          idf.py build
+            . $IDF_PATH/export.sh
+            idf.py set-target ${{ matrix.idf_target }}
+            idf.py build
         shell: bash
 
       - name: Store binary artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-${{ env.IDF_TARGET }}
-          path: |
-            build/*.bin
-            build/*.elf
-            build/*.map
-            build/flasher_args.json
+            name: firmware-${{ matrix.idf_target }}
+            path: |
+                build/*.bin
+                build/*.elf
+                build/*.map
+                build/flasher_args.json
 
       - name: Prepare pages artifact
         if: github.event_name == 'release'
         run: |
-          mkdir -p firmware
-          cp build/*.bin firmware/
-          echo "# Firmware Build ${{ github.sha }}" > firmware/index.md
-          echo "Build date: $(date)" >> firmware/index.md
-          echo "Target: $IDF_TARGET" >> firmware/index.md
+            mkdir -p firmware/${{ matrix.idf_target }}
+            cp build/*.bin firmware/${{ matrix.idf_target }}/
+            echo "# Firmware Build ${{ github.sha }}" > firmware/${{ matrix.idf_target }}/index.md
+            echo "Build date: $(date)" >> firmware/${{ matrix.idf_target }}/index.md
+            echo "Target: ${{ matrix.idf_target }}" >> firmware/${{ matrix.idf_target }}/index.md
 
       - name: Upload pages artifact
         if: github.event_name == 'release'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: firmware
+            path: firmware
 
   deploy:
-    name: Deploy to GitHub Pages
-    needs: build
-    if: github.event_name == 'release' && github.event.action == 'created'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+      name: Deploy to GitHub Pages
+      needs: build
+      if: github.event_name == 'release' && github.event.action == 'created'
+      environment:
+          name: github-pages
+          url: ${{ steps.deployment.outputs.page_url }}
+      runs-on: ubuntu-latest
 
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      steps:
+        - name: Deploy to GitHub Pages
+          id: deployment
+          uses: actions/deploy-pages@v4
