@@ -1,4 +1,5 @@
-idf_component_register(SRCS "main.cpp" "src/RaptMateServer.cpp" "src/RaptPillBLE.cpp" INCLUDE_DIRS "." "src" )
+idf_component_register(SRCS "main.cpp" "src/RaptMateServer.cpp" "src/RaptPillBLE.cpp" INCLUDE_DIRS "." "src" REQUIRES bt nvs_flash spiffs esp_http_server json)
+set(COMPONENT_REQUIRES bt nvs_flash spiffs esp_http_server json)
 
 # Build react spiffs image
 add_custom_target(dep
