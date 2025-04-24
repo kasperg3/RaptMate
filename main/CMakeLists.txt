@@ -9,4 +9,4 @@ add_custom_target(dep
     COMMAND npm run build
     COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_SOURCE_DIR}/rapt-mate/build/static/js/*LICENSE.txt # Remove the license files, they are too long for the spiffs
 )
-spiffs_create_partition_image(storage ${CMAKE_SOURCE_DIR}/rapt-mate/build/ FLASH_IN_PROJECT DEPENDS dep)
+spiffs_create_partition_image(storage ${CMAKE_SOURCE_DIR}/rapt-mate/build/ FLASH_IN_PROJECT PARTITION_TABLE_FILE ${CMAKE_SOURCE_DIR}/partitions.csv DEPENDS dep)
