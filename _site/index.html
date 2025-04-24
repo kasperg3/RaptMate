@@ -1,61 +1,86 @@
 <!DOCTYPE html>
+<html lang="en">
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RaptMate</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
 
         * {
             font-family: 'Roboto', sans-serif;
-        }
-
-        TT {
-            font-family: 'Terminal', monospace;
-            background-color: #080a0b;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
         body {
-            background-color: #181a1b;
-            color: white;
+            background-color: #0d1b2a; /* Deep navy blue */
+            color: #e0e1dd; /* Light gray */
+            line-height: 1.6;
         }
 
         .main {
-            width: fit-content;
-            margin: auto;
+            width: 90%;
+            margin: 20px auto;
             max-width: 750px;
         }
 
-        .main>section> :not(:first-child),
-        .indent {
+        h2, h3 {
+            color: #00a8e8; /* Bright blue */
+        }
+
+        a {
+            color: #0077b6; /* Muted blue */
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+            color: #00a8e8; /* Bright blue on hover */
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .features ul {
+            list-style: disc;
             margin-left: 20px;
         }
 
-        .main a {
-            color: #F44;
+        .features ul li {
+            margin-bottom: 10px;
         }
 
-        .configure {
-            margin-bottom: 300px;
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 0.9em;
+            color: #6c757d; /* Muted gray */
         }
 
-        .install .iconify {
-            color: green;
-            filter: drop-shadow(0 0 0.75rem lime);
+        .install select {
+            padding: 5px;
+            margin-top: 10px;
+            background-color: #1b263b; /* Dark navy */
+            color: #e0e1dd; /* Light gray */
+            border: 1px solid #415a77; /* Steel blue */
+            border-radius: 5px;
         }
 
-        #changelog-body {
-            white-space: break-spaces;
+        .install span {
+            display: block;
+            margin-top: 10px;
         }
 
-        .where-to-get details summary::marker {
-            content: '';
-        }
-
-        .where-to-get details[open] summary p {
-            display: none;
+        .iconify {
+            filter: drop-shadow(0 0 0.5rem #00a8e8); /* Bright blue glow */
         }
     </style>
     <script type="module" src="https://unpkg.com/esp-web-tools@9/dist/web/install-button.js?module"></script>
-    <script src="//code.iconify.design/1/1.0.6/iconify.min.js"></script>
+    <script src="https://code.iconify.design/3/3.0.0/iconify.min.js"></script>
     <script>
         async function fetchChangelog() {
             const response = await fetch("https://api.github.com/repos/kasperg3/RaptMate/releases/latest");
@@ -69,7 +94,7 @@
         }
 
         function setInstallButtonDefault() {
-            setInstallButton("esp32c3");
+            setInstallButton("esp32-c3");
         }
 
         fetchChangelog();
@@ -79,25 +104,63 @@
 
 <body>
     <section class="main">
-        <h2>RaptMate <span class="iconify" data-icon="mdi-printer-3d" style="color: #F44;"></span></h2>
-        <p>An implementation of react and rapt pill data collection on an ESP32.<a
-                href="https://github.com/kasperg3/RaptMate">Source code is available on GitHub</a>.</p>
+        <h2>RaptMate <span class="iconify" data-icon="mdi-printer-3d" style="color: #00a8e8;"></span></h2>
+        <p>
+            RaptMate is a project designed to monitor and display sensor data from a BLE-enabled device (RaptPill) using a React-based web interface and an ESP32-based backend.
+            <a href="https://github.com/kasperg3/RaptMate">Source code is available on GitHub</a>.
+        </p>
 
-        <section class="issues">
-            <h3><span class="iconify" data-icon="mdi-github"
-                    style="color: white; filter: drop-shadow(0 0 0.75rem gray);"></span> Report Issues</h3>
-            <p>If you experience any issues with this project, or have any feature requests for the project, please
-                report them on the <a href="https://github.com/kasperg3/RaptMate/issues">issues tab on GitHub</a>.</p>
+        <section class="section features">
+            <h3><span class="iconify" data-icon="mdi-star-circle" style="color: #00a8e8;"></span> Features</h3>
+            <ul>
+                <li><span class="iconify" data-icon="mdi-check-circle" style="color: #00a8e8;"></span> Collects data from RAPT pills using ESP32 devices.</li>
+                <li><span class="iconify" data-icon="mdi-check-circle" style="color: #00a8e8;"></span> BLE integration for real-time sensor data collection.</li>
+                <li><span class="iconify" data-icon="mdi-check-circle" style="color: #00a8e8;"></span> Wi-Fi configuration via a user-friendly interface.</li>
+                <li><span class="iconify" data-icon="mdi-check-circle" style="color: #00a8e8;"></span> Responsive React-based frontend for data visualization.</li>
+                <li><span class="iconify" data-icon="mdi-check-circle" style="color: #00a8e8;"></span> Open-source and customizable for your needs.</li>
+            </ul>
         </section>
 
-        <section class="install">
+        <section class="section install">
             <h3><span class="iconify" data-icon="mdi-download"></span> Install</h3>
-            <p>Select your device from the list below and click 'Connect'.<br>Note: You may need to hold the 'BOOT'
-                button on the device while pressing install.</p>
+            <p>
+                Select your device from the list below and click 'Connect'.<br>
+                Note: You may need to hold the 'BOOT' button on the device while pressing install.
+            </p>
             <select id="select-install-btn" onchange="setInstallButton(getElementById('select-install-btn').value)">
                 <option value="esp32-c3">ESP32-c3</option>
             </select>
             <span id="install-btn"></span>
         </section>
+
+        <section class="section changelog">
+            <h3 id="changelog-header-version"><span class="iconify" data-icon="mdi-history" style="color: #00a8e8;"></span> Changelog - Version </h3>
+            <pre id="changelog-body">Loading changelog...</pre>
+        </section>
+
+        <section class="section issues">
+            <h3>
+                <span class="iconify" data-icon="mdi-github" style="color: #00a8e8;"></span>
+                Report Issues
+            </h3>
+            <p>
+                If you experience any issues with this project, or have any feature requests for the project, please
+                report them on the <a href="https://github.com/kasperg3/RaptMate/issues">issues tab on GitHub</a>.
+            </p>
+        </section>
+
+        <section class="section contributing">
+            <h3><span class="iconify" data-icon="mdi-account-group" style="color: #00a8e8;"></span> Contributing</h3>
+            <p>
+                Contributions are welcome! Feel free to fork the repository, make changes, and submit a pull request.
+                For more details, check the <a href="https://github.com/kasperg3/RaptMate/blob/main/CONTRIBUTING.md">contributing guidelines</a>.
+            </p>
+        </section>
     </section>
+
+    <footer>
+        &copy; 2025 RaptMate. Built with ❤️ by the open-source community.
+    </footer>
 </body>
+
+</html>
