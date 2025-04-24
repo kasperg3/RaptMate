@@ -47,6 +47,8 @@ jobs:
       - name: Build project
         run: |
             . $IDF_PATH/export.sh
+            sudo apt-get update
+            sudo apt-get install -y npm
             idf.py set-target ${{ matrix.idf_target }}
             idf.py build
         shell: bash
