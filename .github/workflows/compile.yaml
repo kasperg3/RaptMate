@@ -44,6 +44,9 @@ jobs:
             apt-get update
             apt-get install -y npm
             cd rapt-mate
+            nvm install 20
+            nvm use 20
+            nvm alias default 20
             npm install
             cd ..
             idf.py set-target ${{ matrix.idf_target }}
