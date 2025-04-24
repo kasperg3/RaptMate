@@ -10,9 +10,6 @@ on:
   release:
     types: [ created ]
 
-env:
-  IDF_VERSION: v5.4
-
 permissions:
   pages: write
   id-token: write
@@ -48,7 +45,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-            python-version: '3.9'
+            python-version: '3.12'
       - name: Build project
         run: |
             . $IDF_PATH/export.sh
