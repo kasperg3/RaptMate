@@ -11,7 +11,7 @@ on:
     types: [ created ]
 
 env:
-  IDF_VERSION: v5.1.2
+  IDF_VERSION: v5.4
 
 permissions:
   pages: write
@@ -23,7 +23,7 @@ jobs:
     name: Build for ${{ matrix.idf_target }}
     runs-on: ubuntu-latest
     container:
-        image: espressif/idf:release-v5.4.1
+        image: espressif/idf:release-v5.4
     strategy:
         matrix:
             idf_target: [esp32, esp32s2, esp32c3] # Add more targets as needed
