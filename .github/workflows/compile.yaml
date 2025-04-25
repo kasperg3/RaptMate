@@ -65,7 +65,7 @@ jobs:
         run: |
           mkdir -p firmware-${{ matrix.idf_target }}
           mv build/bootloader.bin \
-             build/partition_table/partition_table.bin \
+             build/partition_table/partition-table.bin \
              build/raptmate.bin \
              build/storage.bin \
              build/data.bin \

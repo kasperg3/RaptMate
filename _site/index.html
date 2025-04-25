@@ -94,7 +94,7 @@
         }
 
         function setInstallButtonDefault() {
-            setInstallButton("esp32-c3");
+            setInstallButton("esp32c3");
         }
 
         fetchChangelog();
@@ -129,7 +129,6 @@
             </p>
             <select id="select-install-btn" onchange="setInstallButton(getElementById('select-install-btn').value)">
                 <option value="esp32c3">ESP32-c3</option>
-                <option value="esp32s3">ESP32-s3</option>
                 <option value="esp32">ESP32</option>
             </select>
             <span id="install-btn"></span>
