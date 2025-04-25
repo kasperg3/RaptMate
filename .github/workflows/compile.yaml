@@ -58,34 +58,29 @@ jobs:
         with:
             name: firmware-${{ matrix.idf_target }}
             path: |
-                build/*.bin
-                build/*.elf
-                build/*.map
-                build/flasher_args.json
+              build/*.bin
+              build/*.elf
+              build/*.map
+              build/flasher_args.json
+              _site/manifest.json
+
+      - name: Upload artifact to release
+        if: github.event_name == 'release' && github.event.action == 'created'
+        uses: actions/upload-release-asset@v1
+        with:
+            upload_url: ${{ github.event.release.upload_url }}
+            asset_path: firmware-${{ matrix.idf_target }}.zip
+            asset_name: firmware-${{ matrix.idf_target }}.zip
+            asset_content_type: application/zip
 
       - name: Prepare pages artifact
         if: github.event_name == 'release'
         run: |
             mkdir -p firmware/${{ matrix.idf_target }}
             cp build/*.bin firmware/${{ matrix.idf_target }}/
-            cp _site/manifest.json firmware/${{ matrix.idf_target }}/
             echo "# Firmware Build ${{ github.sha }}" > firmware/${{ matrix.idf_target }}/index.md
             echo "Build date: $(date)" >> firmware/${{ matrix.idf_target }}/index.md
             echo "Target: ${{ matrix.idf_target }}" >> firmware/${{ matrix.idf_target }}/index.md
-  pages:
-    name: Deploy to GitHub Pages
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Upload pages artifact
-        if: github.event_name == 'release'
-        uses: actions/upload-pages-artifact@v3
-        with:
-            path: firmware
 
   deploy:
       name: Deploy to GitHub Pages
