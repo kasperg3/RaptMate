@@ -64,16 +64,28 @@ jobs:
               _site/manifest.json
       
       - name: Upload artifact to release
-        if: github.event_name == 'release' && github.event.action == 'created'
+        if: github.event_name == 'release'
         uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         with:
-            upload_url: ${{ github.event.release.upload_url }}
-            asset_path: artifacts/firmware-${{ matrix.idf_target }}.zip
-            asset_name: firmware-${{ matrix.idf_target }}.zip
-            asset_content_type: application/zip
-
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: artifacts/firmware-${{ matrix.idf_target }}.zip
+          asset_name: firmware-${{ matrix.idf_target }}.zip
+          asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Store binary artifacts
+        id: artifact-upload-step
+        uses: actions/upload-artifact@v4
+        with:
+            name: firmware-${{ matrix.idf_target }}
+            path: |
+              build/*.bin
+              build/*.elf
+              build/*.map
+              build/flasher_args.json
+              _site/manifest.json
+              
       - name: Prepare pages artifact
         if: github.event_name == 'release'
         run: |
