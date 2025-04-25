@@ -63,18 +63,19 @@ jobs:
           idf.py reconfigure set-target ${{ matrix.idf_target }} build
       - name: Compress build artifacts
         run: |
-          zip -j firmware-${{ matrix.idf_target }}.zip \
-          build/bootloader.bin \
-          build/partition_table/parition_table.bin \
-          build/raptmate.bin \
-          build/storage.bin \
-          build/data.bin \
-          build/flasher_args.json
+          mkdir -p firmware-${{ matrix.idf_target }}
+          mv build/bootloader.bin \
+             build/partition_table/partition_table.bin \
+             build/raptmate.bin \
+             build/storage.bin \
+             build/data.bin \
+             build/flasher_args.json \
+             firmware-${{ matrix.idf_target }}/
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ matrix.idf_target }}
-          path: firmware-${{ matrix.idf_target }}.zip
+          path: firmware-${{ matrix.idf_target }}/
 
   deploy:
     needs: build
