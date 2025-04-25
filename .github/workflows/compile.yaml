@@ -70,7 +70,6 @@ jobs:
               build/*.elf \
               build/*.map \
               build/flasher_args.json \
-              _site/manifest.json
 
       - name: Upload per-target artifact
         uses: actions/upload-artifact@v4
@@ -148,15 +147,26 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
-    needs: [build, package]
+    needs: [build]
     if: github.event_name == 'release' && github.event.action == 'created'
     timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Upload GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site/'  # You must specify the path to your built site
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
