@@ -61,26 +61,24 @@ jobs:
           . $IDF_PATH/export.sh
           export SDKCONFIG_DEFAULTS=$(pwd)/sdkconfig.defaults
           idf.py reconfigure set-target ${{ matrix.idf_target }} build
-
+      - name: Compress build artifacts
+        run: |
+          zip -j firmware-${{ matrix.idf_target }}.zip \
+          build/bootloader.bin \
+          build/partition_table/parition_table.bin \
+          build/raptmate.bin \
+          build/storage.bin \
+          build/data.bin \
+          build/flasher_args.json
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-${{ matrix.idf_target }}/
-          path: |
-            build/bootloader.bin
-            build/partition_table/parition_table.bin
-            build/bootloader.bin
-            build/raptmate.bin
-            build/storage.bin
-            build/data.bin
-            build/flasher_args.json
-
+          name: firmware-${{ matrix.idf_target }}
+          path: firmware-${{ matrix.idf_target }}.zip
 
   deploy:
     needs: build
     name: Deploy to GitHub Pages
-    # if: github.event_name == 'release' && github.event.action == 'created'
-    # timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
