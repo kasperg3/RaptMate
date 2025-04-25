@@ -48,6 +48,7 @@ jobs:
             python-version: '3.12'
       - name: Debug partitions
         run: |
+            . $IDF_PATH/export.sh
             ls -l partitions.csv
             cat partitions.csv
             idf.py reconfigure
