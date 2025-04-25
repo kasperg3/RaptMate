@@ -92,13 +92,13 @@ jobs:
         with:
           path: combined-firmware/
 
+      - name: Copy HTML page
+        run: |
+          cp _site/index.html combined-firmware/
+
       - name: Combine firmware artifacts into a single zip
         run: |
           zip -r combined-firmware.zip combined-firmware/
-
-      - name: Copy HTML page
-        run: |
-          cp index.html flash_page/
 
       - name: Upload to GitHub Pages
         uses: actions/upload-pages-artifact@v3
