@@ -46,6 +46,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
             python-version: '3.12'
+      - name: Debug partitions
+        run: |
+            ls -l partitions.csv
+            cat partitions.csv
+            idf.py reconfigure
+            cat build/config/sdkconfig.json | grep PARTITION_TABLE
       - name: Build project
         run: |
             . $IDF_PATH/export.sh
