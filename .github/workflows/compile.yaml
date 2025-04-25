@@ -54,6 +54,7 @@ jobs:
         shell: bash
 
       - name: Store binary artifacts
+        id: artifact-upload-step
         uses: actions/upload-artifact@v4
         with:
             name: firmware-${{ matrix.idf_target }}
@@ -63,13 +64,12 @@ jobs:
               build/*.map
               build/flasher_args.json
               _site/manifest.json
-
       - name: Upload artifact to release
         if: github.event_name == 'release' && github.event.action == 'created'
         uses: actions/upload-release-asset@v1
         with:
             upload_url: ${{ github.event.release.upload_url }}
-            asset_path: firmware-${{ matrix.idf_target }}.zip
+            asset_path: ${{ steps.artifact-upload-step.outputs.artifact-id }}
             asset_name: firmware-${{ matrix.idf_target }}.zip
             asset_content_type: application/zip
 
