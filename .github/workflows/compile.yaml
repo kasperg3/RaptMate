@@ -62,21 +62,40 @@ jobs:
           export SDKCONFIG_DEFAULTS=$(pwd)/sdkconfig.defaults
           idf.py reconfigure set-target ${{ matrix.idf_target }} build
 
-      - name: Create per-target zip
-        run: |
-          mkdir -p artifacts
-          zip -j artifacts/firmware-${{ matrix.idf_target }}.zip \
-              build/*.bin \
-              build/*.elf \
-              build/*.map \
-              build/flasher_args.json \
-
-      - name: Upload per-target artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ matrix.idf_target }}
-          path: artifacts/firmware-${{ matrix.idf_target }}.zip
-          retention-days: 1
+          path: |
+            build/*.bin
+            build/*.elf
+            build/*.map
+            build/flasher_args.json
+            destination: artifacts/firmware-${{ matrix.idf_target }}
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name == 'release' && github.event.action == 'created'
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Upload GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   package:
     name: Package all firmware
@@ -96,41 +115,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gh
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - name: Download all firmware artifacts
+        uses: actions/download-artifact@v3
         with:
-          path: downloaded_artifacts
-          pattern: firmware-*
-          merge-multiple: true
+          path: artifacts/
 
-      - name: Show downloaded files (debug)
-        run: ls -R downloaded_artifacts
-
-      - name: Create organized firmware structure
+      - name: Combine firmware artifacts into a single zip
         run: |
-          mkdir -p combined/firmware
-          
-          # Process each downloaded zip file
-          for target_zip in downloaded_artifacts/firmware-*.zip; do
-            echo "Processing $target_zip"
-            target_name=$(basename "$target_zip" .zip | sed 's/firmware-//')
-            echo "Target name: $target_name"
-            mkdir -p "combined/firmware/$target_name"
-            unzip -j -o "$target_zip" -d "combined/firmware/$target_name" || echo "Warning: Failed to unzip $target_zip"
-          done
-
-          # Verify extraction
-          find combined/firmware -type f | xargs -I {} ls -la {}
-
-          # Create README
-          echo "# Firmware Release ${{ github.ref_name }}" > combined/README.md
-          echo "Generated at $(date -u)" >> combined/README.md
-          echo "Contains firmware for: $(ls combined/firmware | tr '\n' ' ')" >> combined/README.md
-
-          # Create final zip
-          cd combined
-          zip -r ../firmware-release.zip .
-          cd ..
+          zip -j firmware-release.zip artifacts/
 
       - name: Upload release asset using GH CLI
         run: |
@@ -141,32 +133,3 @@ jobs:
       - name: Verify upload
         run: |
           gh release view ${{ github.event.release.tag_name }} --json assets --jq '.assets[].name'
-
-      - name: Cleanup
-        run: rm -rf downloaded_artifacts combined firmware-release.zip
-
-  deploy:
-    name: Deploy to GitHub Pages
-    needs: [build]
-    if: github.event_name == 'release' && github.event.action == 'created'
-    timeout-minutes: 10
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Upload GitHub Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '_site/'  # You must specify the path to your built site
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
