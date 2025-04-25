@@ -15,13 +15,10 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  actions: read
-  checks: write
   contents: write
-  deployments: write
-  id-token: write
-  pages: write
   packages: read
+  pages: write
+  id-token: write
 
 jobs:
   build:
@@ -29,10 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
-      image: espressif/idf:release-v5.4@sha256:abcdef123456...
+      image: espressif/idf:release-v5.4
     strategy:
       matrix:
-        idf_target: [esp32c3, esp32]
+        idf_target: [esp32c3] # Add more targets as needed
 
     steps:
       - name: Checkout repository
@@ -58,14 +55,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Cache Python dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
       - name: Build project
         run: |
           set -e
@@ -73,60 +62,79 @@ jobs:
           export SDKCONFIG_DEFAULTS=$(pwd)/sdkconfig.defaults
           idf.py reconfigure set-target ${{ matrix.idf_target }} build
 
-      - name: Store binary artifacts
+      - name: Create per-target zip
+        run: |
+          mkdir -p artifacts
+          zip -j artifacts/firmware-${{ matrix.idf_target }}.zip \
+              build/*.bin \
+              build/*.elf \
+              build/*.map \
+              build/flasher_args.json \
+              _site/manifest.json
+
+      - name: Upload per-target artifact
         uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ matrix.idf_target }}
-          path: |
-            build/*.bin
-            build/*.elf
-            build/*.map
-            build/flasher_args.json
-            _site/manifest.json
+          path: artifacts/firmware-${{ matrix.idf_target }}.zip
+          retention-days: 1
 
   package:
-    name: Package firmware
+    name: Package all firmware
     needs: build
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Download artifacts
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Create organized firmware zip
+      - name: Create organized firmware structure
         run: |
-          mkdir -p combined_artifacts/firmware
+          mkdir -p combined/firmware
           
-          for artifact in artifacts/*.zip; do
-            target_name=$(basename "$artifact" .zip | sed 's/firmware-//')
-            mkdir -p "combined_artifacts/firmware/$target_name"
-            unzip -q "$artifact" -d "combined_artifacts/firmware/$target_name"
+          # Extract each target's zip to its own directory
+          for target_zip in artifacts/firmware-*.zip; do
+            target_name=$(basename "$target_zip" .zip | cut -d- -f2)
+            mkdir -p "combined/firmware/$target_name"
+            unzip -j -o "$target_zip" -d "combined/firmware/$target_name"
           done
 
-          cd combined_artifacts
-          zip -r firmware-all-targets.zip firmware
+          # Create README
+          echo "# Firmware Release ${{ github.ref_name }}" > combined/README.md
+          echo "Generated at $(date -u)" >> combined/README.md
+          echo "Contains firmware for: $(ls combined/firmware | tr '\n' ' ')" >> combined/README.md
+
+          # Create final zip
+          cd combined
+          zip -r ../firmware-release.zip .
           cd ..
 
-      - name: Validate zip structure
+      - name: Upload release asset using GH CLI
         run: |
-          unzip -t combined_artifacts/firmware-all-targets.zip
-          unzip -l combined_artifacts/firmware-all-targets.zip | grep "firmware/"
+          gh release upload ${{ github.event.release.tag_name }} firmware-release.zip \
+            --clobber \
+            --repo ${{ github.repository }}
 
-      - name: Upload to release
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: combined_artifacts/firmware-all-targets.zip
-          asset_name: firmware-${{ github.run_id }}.zip
-          asset_content_type: application/zip
+      - name: Verify upload
+        run: |
+          gh release view ${{ github.event.release.tag_name }} --json assets --jq '.assets[].name'
 
-      - name: Cleanup workspace
-        if: always()
-        run: rm -rf artifacts combined_artifacts
+      - name: Cleanup
+        run: rm -rf artifacts combined firmware-release.zip
 
   deploy:
     name: Deploy to GitHub Pages
