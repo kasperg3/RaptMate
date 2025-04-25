@@ -29,7 +29,7 @@ jobs:
       image: espressif/idf:release-v5.4
     strategy:
       matrix:
-        idf_target: [esp32c3] # Add more targets as needed
+        idf_target: [esp32c3, esp32] # Add more targets as needed
 
     steps:
       - name: Checkout repository
@@ -65,18 +65,22 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-${{ matrix.idf_target }}
+          name: firmware-${{ matrix.idf_target }}/
           path: |
-            build/*.bin
-            build/*.elf
-            build/*.map
+            build/bootloader.bin
+            build/partition_table/parition_table.bin
+            build/bootloader.bin
+            build/raptmate.bin
+            build/storage.bin
+            build/data.bin
             build/flasher_args.json
-            destination: artifacts/firmware-${{ matrix.idf_target }}
+
 
   deploy:
+    needs: build
     name: Deploy to GitHub Pages
-    if: github.event_name == 'release' && github.event.action == 'created'
-    timeout-minutes: 10
+    # if: github.event_name == 'release' && github.event.action == 'created'
+    # timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -91,8 +95,7 @@ jobs:
 
       - name: Upload GitHub Pages Artifact
         uses: actions/upload-pages-artifact@v3
-        with:
-          path: artifacts/
+        
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
@@ -116,7 +119,7 @@ jobs:
           sudo apt-get install -y gh
 
       - name: Download all firmware artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts/
 
