@@ -64,7 +64,7 @@ jobs:
       - name: Compress build artifacts
         run: |
           mkdir -p firmware-${{ matrix.idf_target }}
-          mv build/bootloader.bin \
+          mv build/bootloader/bootloader.bin \
              build/partition_table/partition-table.bin \
              build/raptmate.bin \
              build/storage.bin \
@@ -76,28 +76,6 @@ jobs:
         with:
           name: firmware-${{ matrix.idf_target }}
           path: firmware-${{ matrix.idf_target }}/
-
-  deploy:
-    needs: build
-    name: Deploy to GitHub Pages
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Upload GitHub Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
 
   package:
     name: Package all firmware
