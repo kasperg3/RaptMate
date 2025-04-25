@@ -23,7 +23,7 @@ jobs:
         image: espressif/idf:release-v5.4
     strategy:
         matrix:
-            idf_target: [esp32, esp32s2, esp32c3] # Add more targets as needed
+            idf_target: [esp32, esp32c3] # Add more targets as needed
 
     steps:
       - name: Checkout repository
@@ -49,9 +49,8 @@ jobs:
       - name: Build project
         run: |
             . $IDF_PATH/export.sh
-            idf.py reconfigure set-target ${{ matrix.idf_target }}
             export SDKCONFIG_DEFAULTS=$(pwd)/sdkconfig.defaults
-            idf.py build
+            idf.py reconfigure set-target ${{ matrix.idf_target }} build
         shell: bash
 
       - name: Store binary artifacts
