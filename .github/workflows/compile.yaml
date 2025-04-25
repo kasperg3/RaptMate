@@ -100,18 +100,28 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: downloaded_artifacts
+          pattern: firmware-*
+          merge-multiple: true
+
+      - name: Show downloaded files (debug)
+        run: ls -R downloaded_artifacts
 
       - name: Create organized firmware structure
         run: |
           mkdir -p combined/firmware
           
-          # Extract each target's zip to its own directory
-          for target_zip in artifacts/firmware-*.zip; do
-            target_name=$(basename "$target_zip" .zip | cut -d- -f2)
+          # Process each downloaded zip file
+          for target_zip in downloaded_artifacts/firmware-*.zip; do
+            echo "Processing $target_zip"
+            target_name=$(basename "$target_zip" .zip | sed 's/firmware-//')
+            echo "Target name: $target_name"
             mkdir -p "combined/firmware/$target_name"
-            unzip -j -o "$target_zip" -d "combined/firmware/$target_name"
+            unzip -j -o "$target_zip" -d "combined/firmware/$target_name" || echo "Warning: Failed to unzip $target_zip"
           done
+
+          # Verify extraction
+          find combined/firmware -type f | xargs -I {} ls -la {}
 
           # Create README
           echo "# Firmware Release ${{ github.ref_name }}" > combined/README.md
@@ -134,7 +144,7 @@ jobs:
           gh release view ${{ github.event.release.tag_name }} --json assets --jq '.assets[].name'
 
       - name: Cleanup
-        run: rm -rf artifacts combined firmware-release.zip
+        run: rm -rf downloaded_artifacts combined firmware-release.zip
 
   deploy:
     name: Deploy to GitHub Pages
