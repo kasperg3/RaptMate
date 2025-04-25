@@ -20,7 +20,6 @@ spiffs_create_partition_image(
     DEPENDS dep
 )
 
-
 spiffs_create_partition_image(
     data 
     ${CMAKE_SOURCE_DIR}/rapt-mate/build/ 
