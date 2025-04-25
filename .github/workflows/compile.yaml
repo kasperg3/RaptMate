@@ -46,13 +46,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
             python-version: '3.12'
-      - name: Setup ESP-IDF
+      - name: Build project
         run: |
             . $IDF_PATH/export.sh
             idf.py reconfigure set-target ${{ matrix.idf_target }}
             export SDKCONFIG_DEFAULTS=$(pwd)/sdkconfig.defaults
-      - name: Build project
-        run: |
             idf.py build
         shell: bash
 
