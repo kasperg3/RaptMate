@@ -20,3 +20,11 @@ spiffs_create_partition_image(
     DEPENDS dep
 )
 
+
+spiffs_create_partition_image(
+    data 
+    ${CMAKE_SOURCE_DIR}/rapt-mate/build/ 
+    FLASH_IN_PROJECT 
+    PARTITION_TABLE_FILE ${PARTITION_TABLE}
+    DEPENDS dep
+)

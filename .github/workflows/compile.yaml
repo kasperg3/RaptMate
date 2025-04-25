@@ -23,7 +23,7 @@ jobs:
         image: espressif/idf:release-v5.4
     strategy:
         matrix:
-            idf_target: [esp32, esp32c3] # Add more targets as needed
+            idf_target: [esp32, esp32c3, esp32s3] # Add more targets as needed
 
     steps:
       - name: Checkout repository
@@ -68,6 +68,7 @@ jobs:
         run: |
             mkdir -p firmware/${{ matrix.idf_target }}
             cp build/*.bin firmware/${{ matrix.idf_target }}/
+            cp _site/manifest.json firmware/${{ matrix.idf_target }}/
             echo "# Firmware Build ${{ github.sha }}" > firmware/${{ matrix.idf_target }}/index.md
             echo "Build date: $(date)" >> firmware/${{ matrix.idf_target }}/index.md
             echo "Target: ${{ matrix.idf_target }}" >> firmware/${{ matrix.idf_target }}/index.md
