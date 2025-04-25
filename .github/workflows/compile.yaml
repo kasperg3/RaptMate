@@ -94,7 +94,7 @@ jobs:
 
       - name: Copy HTML page
         run: |
-          cp _site/index.html combined-firmware/
+          cp -r _site/* combined-firmware/
 
       - name: Combine firmware artifacts into a single zip
         run: |
