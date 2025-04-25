@@ -46,19 +46,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
             python-version: '3.12'
-      - name: Debug partitions
+      - name: Setup ESP-IDF
         run: |
             . $IDF_PATH/export.sh
-            ls -l partitions.csv
-            cat partitions.csv
-            idf.py reconfigure
-            cat build/config/sdkconfig.json | grep PARTITION_TABLE
+            idf.py reconfigure set-target ${{ matrix.idf_target }}
+            export SDKCONFIG_DEFAULTS=$(pwd)/sdkconfig.defaults
       - name: Build project
         run: |
-            . $IDF_PATH/export.sh
-            idf.py set-target ${{ matrix.idf_target }}
-            export SDKCONFIG=$(pwd)/sdkconfig
-            idf.py reconfigure build
+            idf.py build
         shell: bash
 
       - name: Store binary artifacts
