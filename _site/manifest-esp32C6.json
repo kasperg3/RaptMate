@@ -1,0 +1,31 @@
+{
+    "name": "RaptMate",
+    "version": "1.0.0",
+    "builds": [
+        {
+            "chipFamily": "ESP32-C6",
+            "parts": [
+                {
+                    "path": "firmware-esp32c3/bootloader.bin",
+                    "offset": 0
+                },
+                {
+                    "path": "firmware-esp32c3/raptmate.bin",
+                    "offset": 65536
+                },
+                {
+                    "path": "firmware-esp32c3/partition-table.bin",
+                    "offset": 32768
+                },
+                {
+                    "path": "firmware-esp32c3/storage.bin",
+                    "offset": 2162688
+                },
+                {
+                    "path": "firmware-esp32c3/data.bin",
+                    "offset": 3211264
+                }
+            ]
+        }
+    ]
+}
