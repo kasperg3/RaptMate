@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "builds": [
         {
-            "chipFamily": "ESP32",
+            "chipFamily": "ESP32-C3",
             "parts": [
                 {
                     "path": "firmware-esp32c3/bootloader.bin",
