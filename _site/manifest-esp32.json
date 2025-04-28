@@ -1,5 +1,5 @@
 {
-    "name": "My ESP32 Project",
+    "name": "RaptMate",
     "version": "1.0.0",
     "builds": [
         {
