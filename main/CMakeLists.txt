@@ -1,4 +1,4 @@
-idf_component_register(SRCS "main.cpp" "src/RaptMateServer.cpp" "src/RaptPillBLE.cpp" INCLUDE_DIRS "." "src" REQUIRES bt nvs_flash spiffs esp_http_server json)
+idf_component_register(SRCS "main.cpp" "src/RaptMateServer.cpp" "src/RaptPillBLE.cpp" INCLUDE_DIRS "." "src" REQUIRES bt nvs_flash spiffs esp_http_server json esp_coex)
 set(CONFIG_BT_NIMBLE_ENABLED 1)  # Enable NimBLE stack
 
 set(COMPONENT_REQUIRES bt nvs_flash spiffs esp_http_server json)

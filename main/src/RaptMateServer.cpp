@@ -29,14 +29,8 @@ void RaptMateServer::init()
 
 RaptMateServer::~RaptMateServer()
 {
-    ESP_LOGI(SERVER_TAG, "Deinitializing Wi-Fi and SNTP");
+// TODO housekeeping
 
-    // Deinitialize SNTP
-    esp_netif_sntp_deinit();
-
-    // Stop Wi-Fi
-    esp_wifi_stop();
-    esp_wifi_deinit();
 }
 
 void RaptMateServer::init_http_server()
@@ -53,7 +47,16 @@ void RaptMateServer::init_http_server()
         index_uri.method = HTTP_GET;
         index_uri.handler = RaptMateServer::index_get_handler;
         index_uri.user_ctx = this->ble;
+        
         httpd_register_uri_handler(server, &index_uri);
+
+        httpd_uri_t post_uri = {
+            .uri       = "/settings",  // Your endpoint
+            .method    = HTTP_POST,
+            .handler   = RaptMateServer::settings_post_handler,
+            .user_ctx  = this->wm
+        };
+        httpd_register_uri_handler(server, &post_uri);
 
         ESP_LOGI(SERVER_TAG, "HTTP Server started");
     }
@@ -130,56 +133,69 @@ esp_err_t RaptMateServer::static_file_get_handler(httpd_req_t *req)
 
 esp_err_t RaptMateServer::settings_post_handler(httpd_req_t *req)
 {
-    char content[256];
-    int total_len = req->content_len;
-    int cur_len = 0;
-    int received = 0;
-
-    if (total_len >= sizeof(content))
-    {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Content too long");
+    // First check if it's a POST request
+    if (req->method != HTTP_POST) {
+        httpd_resp_send_err(req, HTTPD_405_METHOD_NOT_ALLOWED, "Method not allowed");
         return ESP_FAIL;
     }
 
-    while (cur_len < total_len)
-    {
-        received = httpd_req_recv(req, content + cur_len, total_len - cur_len);
-        if (received <= 0)
-        {
-            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive post data");
-            return ESP_FAIL;
+    // Get content length
+    int content_length = req->content_len;
+    if (content_length > 1024) { // Set your max content length
+        httpd_resp_send_err(req, HTTPD_413_CONTENT_TOO_LARGE, "Content too long");
+        return ESP_FAIL;
+    }
+
+    // Read the content
+    char *content = static_cast<char *>(malloc(content_length + 1));
+    if (!content) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Memory allocation failed");
+        return ESP_FAIL;
+    }
+
+    int ret = httpd_req_recv(req, content, content_length);
+    if (ret <= 0) {  // Returns 0 if connection closed, <0 if error
+        free(content);
+        if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+            httpd_resp_send_err(req, HTTPD_408_REQ_TIMEOUT, "Request timeout");
         }
-        cur_len += received;
-    }
-    content[total_len] = '\0';
-
-    cJSON *json = cJSON_Parse(content);
-    if (json == NULL)
-    {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
         return ESP_FAIL;
     }
-    // TODO create the real settings
-    // Parse and apply settings from JSON
-    cJSON *setting1 = cJSON_GetObjectItem(json, "setting1");
-    cJSON *setting2 = cJSON_GetObjectItem(json, "setting2");
+    content[ret] = '\0'; // Null-terminate the received data
 
-    if (cJSON_IsString(setting1) && cJSON_IsNumber(setting2))
-    {
-        // Apply settings
-        ESP_LOGI(SERVER_TAG, "Setting1: %s", setting1->valuestring);
-        ESP_LOGI(SERVER_TAG, "Setting2: %d", setting2->valueint);
-        // TODO Add code to apply settings here
+    // Process the received data (example: print it)
+    ESP_LOGI(SERVER_TAG, "Received POST content: %s", content);
+    cJSON *json = cJSON_Parse(content);
+    if (json == NULL) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        free(content);
+        return ESP_FAIL;
     }
-    else
-    {
+
+    cJSON *ssid = cJSON_GetObjectItem(json, "ssid");
+    cJSON *password = cJSON_GetObjectItem(json, "password");
+    
+    if (cJSON_IsString(ssid) && cJSON_IsString(password)) {
+        ESP_LOGI(SERVER_TAG, "SSID: %s", ssid->valuestring);
+        ESP_LOGI(SERVER_TAG, "Password: %s", password->valuestring);
+        WiFiManager *wifi_manager = static_cast<WiFiManager *>(req->user_ctx);
+
+        // Set credentials in WiFiManager
+        wifi_manager->setCredentials(ssid->valuestring, password->valuestring);
+    } else {
         cJSON_Delete(json);
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid settings format");
+        free(content);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON format");
         return ESP_FAIL;
     }
 
     cJSON_Delete(json);
-    httpd_resp_sendstr(req, "Settings updated successfully");
+    // Send response
+    const char *resp_str = "{\"status\":\"success\",\"received\":\"your data\"}";
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, resp_str, strlen(resp_str));
+
+    free(content);
     return ESP_OK;
 }
 
@@ -195,10 +211,6 @@ esp_err_t RaptMateServer::index_get_handler(httpd_req_t *req)
         ble->resetData();
         httpd_resp_sendstr(req, "Data reset successfully");
         return ESP_OK;
-    }
-    else if (strcmp(req->uri, "/settings") == 0)
-    {
-        return settings_post_handler(req);
     }
     else
     {

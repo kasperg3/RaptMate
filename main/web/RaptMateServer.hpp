@@ -24,13 +24,11 @@
 #include "lwip/ip_addr.h"
 #include "time.h"
 #include "cJSON.h"
-
-#define WIFI_SSID "ProjektNet"
-#define WIFI_PASS "RobotRocks"
+#include "drivers/WifiManager.hpp"
 
 class RaptMateServer {
 public:
-    RaptMateServer(RaptPillBLE* ble) : server(NULL), ble(ble) {}
+    RaptMateServer(RaptPillBLE* ble, WiFiManager* wm) : server(NULL), ble(ble), wm(wm) {}
     void init();
     ~RaptMateServer();
 
@@ -39,7 +37,7 @@ private:
 
     httpd_handle_t server;
     RaptPillBLE* ble;
-
+    WiFiManager* wm;
     void init_http_server();
 
     // HTTP URI handlers.

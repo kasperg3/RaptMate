@@ -35,45 +35,45 @@ function App() {
     useEffect(() => {
         const fetchData = () => {
             fetch('/data', { headers: { 'Accept': 'text/csv' } })
-            .then(response => response.text())
-            .then(csvText => {
-                const rows = csvText.split('\n').filter(row => row.trim() !== '');
-                const newDataList = rows.slice(1).map(row => {
-                const [
-                    timestamp,
-                    gravity_velocity,
-                    temperature_celsius,
-                    specific_gravity,
-                    accel_x,
-                    accel_y,
-                    accel_z,
-                    battery
-                ] = row.split(',');
-                return {
-                    timestamp: parseInt(timestamp, 10),
-                    gravity_velocity: parseFloat(gravity_velocity),
-                    temperature_celsius: parseFloat(temperature_celsius),
-                    specific_gravity: parseFloat(specific_gravity),
-                    accel_x: parseFloat(accel_x),
-                    accel_y: parseFloat(accel_y),
-                    accel_z: parseFloat(accel_z),
-                    battery: parseFloat(battery),
-                };
+                .then(response => response.text())
+                .then(csvText => {
+                    const rows = csvText.split('\n').filter(row => row.trim() !== '');
+                    const newDataList = rows.slice(1).map(row => {
+                        const [
+                            timestamp,
+                            gravity_velocity,
+                            temperature_celsius,
+                            specific_gravity,
+                            accel_x,
+                            accel_y,
+                            accel_z,
+                            battery
+                        ] = row.split(',');
+                        return {
+                            timestamp: parseInt(timestamp, 10),
+                            gravity_velocity: parseFloat(gravity_velocity),
+                            temperature_celsius: parseFloat(temperature_celsius),
+                            specific_gravity: parseFloat(specific_gravity),
+                            accel_x: parseFloat(accel_x),
+                            accel_y: parseFloat(accel_y),
+                            accel_z: parseFloat(accel_z),
+                            battery: parseFloat(battery),
+                        };
+                    });
+                    setData(newDataList[newDataList.length - 1]); // Set the latest data point for display
+                    setChartData({
+                        labels: newDataList.map(newData => new Date(newData.timestamp * 1000)),
+                        gravity: newDataList.map(newData => newData.specific_gravity / 1000),
+                        temperature: newDataList.map(newData => newData.temperature_celsius),
+                        battery: newDataList.map(newData => newData.battery),
+                    });
                 });
-                setData(newDataList[newDataList.length - 1]); // Set the latest data point for display
-                setChartData({
-                labels: newDataList.map(newData => new Date(newData.timestamp * 1000)),
-                gravity: newDataList.map(newData => newData.specific_gravity / 1000),
-                temperature: newDataList.map(newData => newData.temperature_celsius),
-                battery: newDataList.map(newData => newData.battery),
-                });
-            });
         };
         const interval = setInterval(fetchData, 10000);
         fetchData();
         return () => clearInterval(interval);
     }, []);
-    
+
 
     const handleTabChange = (event, newValue) => {
         setTabIndex(newValue);
@@ -101,7 +101,21 @@ function App() {
             </Tabs>
             <Container maxWidth="lg">
                 {tabIndex === 0 && (
-                    <Paper elevation={4} sx={{ p: 3, mb: 4 }}>
+                <Paper elevation={4} sx={{ p: 3, mb: 4 }}>
+                    <Box display="flex" justifyContent="space-between" gap={2}>
+                        <Paper elevation={2} sx={{ p: 2, flex: '1 1 30%', textAlign: 'center' }}>
+                            <Typography variant="subtitle1">Specific Gravity</Typography>
+                            <Typography variant="h6">{data?.specific_gravity / 1000 || 0}</Typography>
+                        </Paper>
+                        <Paper elevation={2} sx={{ p: 2, flex: '1 1 30%', textAlign: 'center' }}>
+                            <Typography variant="subtitle1">Temperature (°C)</Typography>
+                            <Typography variant="h6">{data?.temperature_celsius || 0}</Typography>
+                        </Paper>
+                        <Paper elevation={2} sx={{ p: 2, flex: '1 1 30%', textAlign: 'center' }}>
+                            <Typography variant="subtitle1">Battery (%)</Typography>
+                            <Typography variant="h6">{data?.battery || 0}</Typography>
+                        </Paper>
+                    </Box>
                         <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3} alignItems="stretch">
                             <Box flex={2} display="flex" flexDirection="column">
                                 <Typography variant="h6" gutterBottom>
@@ -177,7 +191,7 @@ function App() {
                                             </TableRow>
                                             <TableRow>
                                                 <TableCell>Specific Gravity</TableCell>
-                                                <TableCell align="right">{data?.specific_gravity/1000 || 0}</TableCell>
+                                                <TableCell align="right">{data?.specific_gravity / 1000 || 0}</TableCell>
                                             </TableRow>
                                             <TableRow>
                                                 <TableCell>Acceleration X</TableCell>
@@ -209,58 +223,82 @@ function App() {
                     </Paper>
                 )}
                 {tabIndex === 1 && (
-                    <Paper elevation={4} sx={{ p: 3 }}>
-                        <Typography variant="h6" gutterBottom>
-                            Settings
-                        </Typography>
-                        <Typography variant="subtitle1" gutterBottom>
-                            Wi-Fi Configuration
-                        </Typography>
-                        <Box component="form" noValidate autoComplete="off">
-                            <TextField
-                                label="SSID"
-                                variant="outlined"
-                                fullWidth
-                                margin="normal"
-                                value={ssid}
-                                onChange={(e) => setSsid(e.target.value)}
-                            />
-                            <TextField
-                                label="Password"
-                                type="password"
-                                variant="outlined"
-                                fullWidth
-                                margin="normal"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                            <Box display="flex" justifyContent="flex-end" mt={2}>
-                                <Button variant="contained" color="primary">
+                    <Box display="flex" flexDirection="column" gap={3}>
+                        <Paper elevation={4} sx={{ p: 3 }}>
+                            <Typography variant="h6" gutterBottom align="left">
+                                Wi-Fi Configuration
+                            </Typography>
+                            <Box component="form" noValidate autoComplete="off" align="left">
+                                <TextField
+                                    label="ssid"
+                                    variant="outlined"
+                                    fullWidth
+                                    margin="normal"
+                                    value={ssid}
+                                    onChange={(e) => setSsid(e.target.value)}
+                                />
+                                <TextField
+                                    label="password"
+                                    type="password"
+                                    variant="outlined"
+                                    fullWidth
+                                    margin="normal"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => {
+                                        fetch('/settings', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                            },
+                                            body: JSON.stringify({ ssid, password }),
+                                        })
+                                            .then(response => {
+                                                if (response.ok) {
+                                                    alert('Settings saved successfully');
+                                                } else {
+                                                    alert('Failed to save settings');
+                                                }
+                                            })
+                                            .catch(() => alert('Error occurred while saving settings'));
+                                    }}
+                                >
                                     Save
                                 </Button>
                             </Box>
-                            <Box display="flex" justifyContent="flex-start" mt={2}>
+                        </Paper>
+                        <Paper elevation={4} sx={{ p: 3 }}>
+                            <Typography variant="h6" gutterBottom align="left">
+                                Data Management
+                            </Typography>
+                            <Box display="flex" justifyContent="flex-start">
                                 <Button
-                                    variant="outlined"
-                                    color="secondary"
-                                    title="Click to reset all data to default settings"
+                                    variant="contained"
+                                    color="error"
                                     onClick={() => {
-                                        fetch('/reset')
-                                            .then(response => {
-                                                if (response.ok) {
-                                                    alert('Data reset successfully');
-                                                } else {
-                                                    alert('Failed to reset data');
-                                                }
-                                            })
-                                            .catch(() => alert('Error occurred while resetting data'));
+                                        if (window.confirm('Are you sure you want to reset all data? This cannot be undone.')) {
+                                            fetch('/reset')
+                                                .then(response => {
+                                                    if (response.ok) {
+                                                        alert('Data reset successfully');
+                                                    } else {
+                                                        alert('Failed to reset data');
+                                                    }
+                                                })
+                                                .catch(() => alert('Error occurred while resetting data'));
+                                        }
                                     }}
+                                    sx={{ mt: 1 }}
                                 >
-                                    Reset Data
+                                    Reset All Data
                                 </Button>
                             </Box>
-                        </Box>
-                    </Paper>
+                        </Paper>
+                    </Box>
                 )}
             </Container>
         </div>

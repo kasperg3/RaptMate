@@ -7,17 +7,17 @@ QueueHandle_t dataQueue;
 void RaptPillBLE::dataReceiverTask(void *param)
 {
     RaptPillData receivedData;
-    RaptPillBLE *self = static_cast<RaptPillBLE *>(param);
+    RaptPillBLE *ble = static_cast<RaptPillBLE *>(param);
     while (true)
     {
-        if (xQueueReceive(self->dataQueue, &receivedData, portMAX_DELAY))
+        if (xQueueReceive(ble->dataQueue, &receivedData, portMAX_DELAY))
         {
-            self->m_most_recent_data.push_back(receivedData);
+            ble->m_most_recent_data.push_back(receivedData);
             if (receivedData.timestamp != 0)
             {
                 // ESP_LOGI(BLE_TAG, "Updating data");
-
-                self->writeDataToFile(receivedData);
+                std::string formattedData = RaptPillBLE::formatDataAsString(receivedData);
+                RaptPillBLE::writeToFile("/data/data.csv", formattedData);
 
                 ESP_LOGI(BLE_TAG, "Data received and written to file");
             }
@@ -28,28 +28,32 @@ void RaptPillBLE::dataReceiverTask(void *param)
         }
     }
 }
-
-void RaptPillBLE::writeDataToFile(const RaptPillData &data)
+std::string RaptPillBLE::formatDataAsString(const RaptPillData &data)
 {
-    // TODO overwrite lines instead of appending if the file is too big
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), "%lld,%.2f,%.2f,%.4f,%.2f,%.2f,%.2f,%.2f\n",
+             data.timestamp,
+             data.gravity_velocity,
+             data.temperature_celsius,
+             data.specific_gravity,
+             data.accel_x,
+             data.accel_y,
+             data.accel_z,
+             data.battery);
+    return std::string(buffer);
+}
 
-    FILE *file = fopen("/data/data.csv", "a");
+void RaptPillBLE::writeToFile(const char *filepath, const std::string &content)
+{
+    FILE *file = fopen(filepath, "a");
     if (file)
     {
-        fprintf(file, "%lld,%.2f,%.2f,%.4f,%.2f,%.2f,%.2f,%.2f\n",
-                data.timestamp,
-                data.gravity_velocity,
-                data.temperature_celsius,
-                data.specific_gravity,
-                data.accel_x,
-                data.accel_y,
-                data.accel_z,
-                data.battery);
+        fputs(content.c_str(), file);
         fclose(file);
     }
     else
     {
-        ESP_LOGE(BLE_TAG, "Failed to open data.csv for writing");
+        ESP_LOGE(BLE_TAG, "Failed to open %s for writing", filepath);
     }
 }
 
@@ -84,33 +88,38 @@ RaptPillBLE::RaptPillBLE()
     {
         ESP_LOGI(BLE_TAG, "Data SPIFFS mounted");
         // Check if data.csv exists, if not create it
-        const char *file_path = "/data/data.csv";
-        FILE *file = fopen(file_path, "r");
-        if (!file)
-        {
-            ESP_LOGW(BLE_TAG, "data.csv not found, creating a new one");
-            file = fopen(file_path, "w");
-            if (file)
-            {
-                fclose(file);
-                ESP_LOGI(BLE_TAG, "data.csv created successfully");
-            }
-            else
-            {
-                ESP_LOGE(BLE_TAG, "Failed to create data.csv");
-            }
-        }
-        else
-        {
-            fclose(file);
-            ESP_LOGI(BLE_TAG, "data.csv already exists");
-        }
+        createFileIfNotExist("/data/data.csv");
+        createFileIfNotExist("/data/settings.csv");
     }
     // Open the file in read mode
     this->m_most_recent_data = readAllData();
     ESP_LOGI(BLE_TAG, "Number of records loaded from CSV: %zu", this->m_most_recent_data.size());
     // Create the data receiver task
     xTaskCreate(RaptPillBLE::dataReceiverTask, "DataReceiverTask", 4096, this, 5, nullptr);
+}
+
+void RaptPillBLE::createFileIfNotExist(const char *filename)
+{
+    FILE *file = fopen(filename, "r");
+    if (!file)
+    {
+        ESP_LOGW(BLE_TAG, "File not found, creating a new one: %s", filename);
+        file = fopen(filename, "w");
+        if (file)
+        {
+            fclose(file);
+            ESP_LOGI(BLE_TAG, "File created successfully: %s", filename);
+        }
+        else
+        {
+            ESP_LOGE(BLE_TAG, "Failed to create file: %s", filename);
+        }
+    }
+    else
+    {
+        fclose(file);
+        ESP_LOGI(BLE_TAG, "File already exists: %s", filename);
+    }
 }
 
 void RaptPillBLE::resetData()
@@ -242,8 +251,8 @@ void RaptPillBLE::startScan()
 void RaptPillBLE::ble_app_scan()
 {
     struct ble_gap_disc_params disc_params = {
-        .itvl = 0,             // Default interval
-        .window = 0,           // Default window
+        .itvl = 10,             // Default interval
+        .window = 5,           // Default window
         .filter_policy = 0,    // Accept all advertisements
         .limited = 0,          // General discovery mode
         .passive = 1,          // Passive scanning (no scan requests)

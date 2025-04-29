@@ -17,7 +17,6 @@
 #include "web/RaptMateServer.hpp"
 #include "drivers/RaptPillBLE.hpp"
 #include "drivers/WifiManager.hpp"
-
 extern "C" void app_main(void)
 {
     // Initialize NVS — required for Wi‑Fi.
@@ -35,7 +34,7 @@ extern "C" void app_main(void)
     wifiManager.init();
 
     // Create and initialize the server.
-    RaptMateServer raptMateServer(&scanner);
+    RaptMateServer raptMateServer(&scanner, &wifiManager);
     raptMateServer.init();
 
     // The main task can now wait forever.
